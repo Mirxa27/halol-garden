@@ -1,31 +1,33 @@
 import { PrismaClient } from '@prisma/client';
 
-// Extend PrismaClient with logging in development
+// Declare global type for PrismaClient instance
+declare global {
+  var prisma: PrismaClient | undefined;
+}
+
+// Create PrismaClient instance with proper configuration
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' 
-      ? ['query', 'info', 'warn', 'error']
-      : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
     errorFormat: 'pretty',
   });
 };
 
-// Prevent multiple instances of Prisma Client in development
-declare global {
-  var prisma: undefined | ReturnType<typeof prismaClientSingleton>;
-}
-
+// Use singleton pattern to prevent multiple instances in development
 export const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 if (process.env.NODE_ENV !== 'production') {
   globalThis.prisma = prisma;
 }
 
-// Database connection health check
+// Database helper functions
 export async function checkDatabaseConnection(): Promise<boolean> {
   try {
-    await prisma.$queryRaw`SELECT 1`;
-    console.log('Database connection successful');
+    if (!process.env.DATABASE_URL) {
+      console.warn('DATABASE_URL not configured');
+      return false;
+    }
+    await prisma.$connect();
     return true;
   } catch (error) {
     console.error('Database connection failed:', error);
@@ -33,26 +35,22 @@ export async function checkDatabaseConnection(): Promise<boolean> {
   }
 }
 
-// Graceful shutdown
-export async function closeDatabaseConnection(): Promise<void> {
+export async function disconnectDatabase(): Promise<void> {
   try {
     await prisma.$disconnect();
-    console.log('Database connection closed');
   } catch (error) {
-    console.error('Error closing database connection:', error);
+    console.error('Error disconnecting from database:', error);
   }
 }
 
 // Transaction helper
 export async function withTransaction<T>(
-  callback: (tx: PrismaClient) => Promise<T>
+  fn: (tx: any) => Promise<T>
 ): Promise<T> {
-  return await prisma.$transaction(async (tx) => {
-    return await callback(tx as PrismaClient);
-  });
+  return prisma.$transaction(fn);
 }
 
-// Pagination helper
+// Pagination helpers
 export interface PaginationParams {
   page?: number;
   limit?: number;
@@ -67,14 +65,14 @@ export interface PaginatedResult<T> {
   limit: number;
   totalPages: number;
   hasNext: boolean;
-  hasPrevious: boolean;
+  hasPrev: boolean;
 }
 
 export function getPaginationParams(params: PaginationParams) {
   const page = Math.max(1, params.page || 1);
-  const limit = Math.min(100, Math.max(1, params.limit || 20));
+  const limit = Math.min(100, Math.max(1, params.limit || 10));
   const skip = (page - 1) * limit;
-  
+
   return { page, limit, skip };
 }
 
@@ -85,7 +83,7 @@ export function createPaginatedResult<T>(
 ): PaginatedResult<T> {
   const { page, limit } = getPaginationParams(params);
   const totalPages = Math.ceil(total / limit);
-  
+
   return {
     data,
     total,
@@ -93,95 +91,80 @@ export function createPaginatedResult<T>(
     limit,
     totalPages,
     hasNext: page < totalPages,
-    hasPrevious: page > 1,
+    hasPrev: page > 1,
   };
 }
 
 // Soft delete helper
-export interface SoftDeletable {
-  deletedAt: Date | null;
+export async function softDelete(
+  model: any,
+  id: string
+): Promise<void> {
+  await model.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
 }
 
-export function excludeDeleted<T extends SoftDeletable>() {
+// Search query builder
+export function buildSearchQuery(
+  searchTerm: string,
+  fields: string[]
+): any {
+  if (!searchTerm) return {};
+
   return {
-    where: {
-      deletedAt: null,
-    },
+    OR: fields.map(field => ({
+      [field]: {
+        contains: searchTerm,
+        mode: 'insensitive',
+      },
+    })),
   };
 }
 
-// Search helper
-export function buildSearchQuery(searchTerm: string, fields: string[]) {
-  if (!searchTerm || fields.length === 0) {
-    return {};
-  }
-  
-  const searchConditions = fields.map(field => ({
-    [field]: {
-      contains: searchTerm,
-      mode: 'insensitive' as const,
-    },
-  }));
-  
-  return {
-    OR: searchConditions,
-  };
-}
+// Date range query builder
+export function buildDateRangeQuery(
+  field: string,
+  startDate?: Date,
+  endDate?: Date
+): any {
+  if (!startDate && !endDate) return {};
 
-// Date range helper
-export interface DateRangeParams {
-  startDate?: Date | string;
-  endDate?: Date | string;
-}
-
-export function buildDateRangeQuery(field: string, params: DateRangeParams) {
   const query: any = {};
-  
-  if (params.startDate) {
-    query[field] = {
-      ...query[field],
-      gte: new Date(params.startDate),
-    };
-  }
-  
-  if (params.endDate) {
-    query[field] = {
-      ...query[field],
-      lte: new Date(params.endDate),
-    };
-  }
-  
-  return query;
+  if (startDate) query.gte = startDate;
+  if (endDate) query.lte = endDate;
+
+  return { [field]: query };
 }
 
-// Batch operation helper
-export async function batchOperation<T, R>(
+// Batch operations helper
+export async function batchOperation<T>(
   items: T[],
-  operation: (batch: T[]) => Promise<R>,
-  batchSize: number = 100
-): Promise<R[]> {
-  const results: R[] = [];
-  
+  batchSize: number,
+  operation: (batch: T[]) => Promise<void>
+): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
-    const result = await operation(batch);
-    results.push(result);
+    await operation(batch);
   }
-  
-  return results;
 }
 
-// JSON field helper
-export function jsonArrayContains(field: string, value: any) {
+// JSON field query helper
+export function jsonFieldQuery(
+  field: string,
+  path: string,
+  value: any
+): any {
   return {
     [field]: {
-      path: '$[*]',
-      array_contains: value,
+      path: [path],
+      equals: value,
     },
   };
 }
 
-// Retry helper for database operations
+// Retry mechanism for database operations
 export async function retryOperation<T>(
   operation: () => Promise<T>,
   maxRetries: number = 3,
@@ -203,18 +186,4 @@ export async function retryOperation<T>(
   throw lastError;
 }
 
-// Export all database utilities
-export default {
-  prisma,
-  checkDatabaseConnection,
-  closeDatabaseConnection,
-  withTransaction,
-  getPaginationParams,
-  createPaginatedResult,
-  excludeDeleted,
-  buildSearchQuery,
-  buildDateRangeQuery,
-  batchOperation,
-  jsonArrayContains,
-  retryOperation,
-};
+export default prisma;
