@@ -1,35 +1,116 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "client/dist/**/*",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "server/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/dist/$1"
-    }
-  ],
-  "outputDirectory": "client/dist",
+  "name": "medical-devices-marketplace",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
+  "outputDirectory": "dist",
   "installCommand": "npm install",
-  "functions": {
-    "server/index.ts": {
-      "runtime": "nodejs18.x"
+  "framework": "nextjs",
+  "regions": ["iad1"],
+  "env": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_API_URL": "@api_url",
+    "NEXT_PUBLIC_APP_URL": "@app_url",
+    "NEXT_PUBLIC_SITE_NAME": "Medical Devices Marketplace"
+  },
+  "build": {
+    "env": {
+      "DATABASE_URL": "@database_url",
+      "REDIS_URL": "@redis_url",
+      "JWT_SECRET": "@jwt_secret",
+      "JWT_REFRESH_SECRET": "@jwt_refresh_secret",
+      "SESSION_SECRET": "@session_secret",
+      "EMAIL_HOST": "@email_host",
+      "EMAIL_PORT": "@email_port",
+      "EMAIL_USER": "@email_user",
+      "EMAIL_PASSWORD": "@email_password",
+      "EMAIL_FROM": "@email_from",
+      "PAYPAL_CLIENT_ID": "@paypal_client_id",
+      "PAYPAL_CLIENT_SECRET": "@paypal_client_secret",
+      "PAYPAL_MODE": "@paypal_mode",
+      "OPENAI_API_KEY": "@openai_api_key",
+      "UPLOAD_DIR": "/tmp/uploads",
+      "MAX_FILE_SIZE": "10485760",
+      "ENV_ENCRYPTION_KEY": "@env_encryption_key",
+      "VERCEL_API_TOKEN": "@vercel_api_token",
+      "VERCEL_PROJECT_ID": "@vercel_project_id"
     }
   },
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "functions": {
+    "api/[...path].ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "api/admin/[...path].ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/ai/[...path].ts": {
+      "maxDuration": 60,
+      "memory": 2048
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Content-Type, Authorization"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/maintenance-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/rental-expiry",
+      "schedule": "0 10 * * *"
+    }
+  ]
 }
