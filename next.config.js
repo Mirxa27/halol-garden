@@ -7,7 +7,6 @@ const nextConfig = {
   i18n: {
     locales: ['en', 'ar'],
     defaultLocale: 'en',
-    localeDetection: true,
   },
   
   // Image optimization
@@ -25,7 +24,7 @@ const nextConfig = {
   
   // Environment variables
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || '/api',
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
     NEXT_PUBLIC_SITE_NAME: process.env.NEXT_PUBLIC_SITE_NAME || 'Medical Devices Marketplace',
     NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@medical-devices.com',
@@ -106,21 +105,8 @@ const nextConfig = {
     ];
   },
   
-  // Rewrites for API routes
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: process.env.NODE_ENV === 'production' 
-          ? `${process.env.NEXT_PUBLIC_API_URL}/:path*`
-          : 'http://localhost:5000/api/:path*',
-      },
-    ];
-  },
-  
   // Experimental features
   experimental: {
-    serverActions: true,
     serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
   },
   
@@ -135,14 +121,6 @@ const nextConfig = {
   // ESLint
   eslint: {
     ignoreDuringBuilds: false,
-  },
-  
-  // Progressive Web App
-  pwa: {
-    dest: 'public',
-    register: true,
-    skipWaiting: true,
-    disable: process.env.NODE_ENV === 'development',
   },
 };
 
