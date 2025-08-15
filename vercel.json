@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "client/dist/**/*",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "server/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/server/index.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/client/dist/$1"
+    }
+  ],
+  "outputDirectory": "client/dist",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "functions": {
+    "server/index.ts": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

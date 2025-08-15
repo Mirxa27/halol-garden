@@ -1,0 +1,6 @@
+
+1. No Mocks or Assumptions – Build against real services and data; do not stub or simulate functionality unless a third-party service is entirely unavailable.
+2. Full, Complete Development – Deliver production-ready features; partial or placeholder implementations are not acceptable.
+3. Zero Bullshitting – All code, comments, and documentation must be accurate, verifiable, and necessary.
+4. Single-Source Files – Never create duplicate files or append labels such as "enhanced", "updated", etc. Always modify the original file.
+5. Latest Libraries via MCP Context 7 – Use the mcp tool (context 7) to install or upgrade packages to their latest stable versions before implementation.
