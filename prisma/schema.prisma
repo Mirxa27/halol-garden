@@ -1175,3 +1175,29 @@ model FAQ {
   
   @@index([category])
 }
+
+// ==================== ENVIRONMENT CONFIGURATION ====================
+
+model EnvVariable {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  encrypted   Boolean  @default(false)
+  modifiedBy  String?
+  modifiedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+}
+
+model EnvSnapshot {
+  id          String   @id @default(cuid())
+  variables   Json     // Stores all variables at time of snapshot
+  description String
+  createdBy   String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isActive])
+}
