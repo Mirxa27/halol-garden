@@ -6,17 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ProfileSettingsModal } from "@/components/ProfileSettingsModal";
 import {
-  User,
   MapPin,
   Phone,
   Mail,
-  Calendar,
   CreditCard,
   Settings,
   Star,
-  Clock,
   CheckCircle,
-  XCircle,
   Package,
   Wrench,
   ShoppingCart,
@@ -25,20 +21,15 @@ import {
   Bell,
   Shield,
   Heart,
-  Truck,
   Download,
-  Filter,
-  Search,
-  MoreHorizontal,
-  ArrowUpDown
 } from "lucide-react";
 import { useState } from "react";
 
 export default function Profile() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [orderFilter, setOrderFilter] = useState('all');
-  const [orderSort, setOrderSort] = useState('newest');
-  const [searchTerm, setSearchTerm] = useState('');
+  const [orderFilter] = useState('all');
+  const [orderSort] = useState('newest');
+  const [searchTerm] = useState('');
 
   // Mock user data
   const userData = {
@@ -303,7 +294,7 @@ export default function Profile() {
                         <span className="font-bold text-primary">{orderStats.total}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-sm text-muted-foreground text-arabic">��لمكتملة</span>
+                        <span className="text-sm text-muted-foreground text-arabic">المكتملة</span>
                         <span className="font-bold text-success">{orderStats.completed}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -522,7 +513,6 @@ export default function Profile() {
         <ProfileSettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
-          userData={userData}
         />
       </div>
     </Layout>

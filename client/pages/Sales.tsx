@@ -14,7 +14,6 @@ import {
 import {
   ShoppingCart,
   Star,
-  MapPin,
   Truck,
   Shield,
   CheckCircle,
@@ -23,16 +22,8 @@ import {
   Filter,
   Search,
   CreditCard,
-  Award,
-  Zap,
   Package,
-  MessageCircle,
-  Phone,
   ArrowRight,
-  TrendingUp,
-  Users,
-  Clock,
-  Sparkles,
 } from "lucide-react";
 
 export default function Sales() {
@@ -88,7 +79,7 @@ export default function Sales() {
       nameEn: "Emergency Equipment",
       count: 56,
       gradient: "from-red-600 to-orange-600",
-      icon: "����",
+      icon: "🚨",
     },
   ];
 
@@ -131,7 +122,7 @@ export default function Sales() {
       rating: 4.7,
       reviews: 234,
       inStock: true,
-      badge: "عرض محد��د",
+      badge: "عرض محدود",
       features: ["دقة 4D", "شاشة عالية الدقة", "مجسات متعددة"],
       warranty: "ثلاث سنوات",
     },

@@ -8,7 +8,6 @@ import {
   Calendar,
   ShoppingCart,
   User,
-  MessageCircle,
   Bell,
   Search,
 } from "lucide-react";

@@ -30,11 +30,8 @@ import {
   Monitor,
   FileText,
   Camera,
-  Thermometer,
   Activity,
-  Settings,
   ArrowRight,
-  PlayCircle,
 } from "lucide-react";
 
 export default function Maintenance() {
@@ -126,7 +123,7 @@ export default function Maintenance() {
                     <Shield className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="font-bold text-primary mb-2 text-arabic text-lg">
-                    ضمان ش��مل
+                    ضمان شامل
                   </h3>
                   <p className="text-muted-foreground text-arabic">
                     ضمان على جميع أعمال الصيانة لمدة عام كامل

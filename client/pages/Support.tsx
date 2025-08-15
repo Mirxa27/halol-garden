@@ -3,26 +3,15 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  MessageCircle, 
   Bot, 
   User, 
   Send, 
   Phone, 
   Mail, 
-  Clock,
-  Search,
   FileText,
   Headphones,
-  Shield,
-  Star,
-  ChevronDown,
-  ExternalLink,
-  HelpCircle,
-  BookOpen,
   Video,
   MessageSquare
 } from "lucide-react";
@@ -128,7 +117,7 @@ export default function Support() {
     },
     {
       question: 'ما هي مدة الضمان على الأجهزة؟',
-      answer: 'تختلف مدة الضمان حسب نوع الجهاز والمصنع، وعادة تتراوح من سنة إلى 5 سنوات. يمكنك العثور على تفاصيل الضمان في صفحة ��لمنتج.'
+      answer: 'تختلف مدة الضمان حسب نوع الجهاز والمصنع، وعادة تتراوح من سنة إلى 5 سنوات. يمكنك العثور على تفاصيل الضمان في صفحة المنتج.'
     },
     {
       question: 'هل يمكن إرجاع الأجهزة المستأجرة مبكراً؟',
@@ -346,7 +335,7 @@ export default function Support() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">
-                    <BookOpen className="ml-2 h-4 w-4" />
+                    <FileText className="ml-2 h-4 w-4" />
                     دليل المستخدم
                   </Button>
                   <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">

@@ -9,7 +9,6 @@ import {
   MessageCircle,
   ShoppingCart,
   X,
-  ChevronDown,
   Home,
   Wrench,
   Calendar,
@@ -23,8 +22,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 export default function Navigation() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [cartCount, setCartCount] = useState(3); // Mock cart count
-  const [notificationCount, setNotificationCount] = useState(5); // Mock notification count
+  const [cartCount] = useState(3); // Mock cart count
+  const [notificationCount] = useState(5); // Mock notification count
   const location = useLocation();
 
   useEffect(() => {

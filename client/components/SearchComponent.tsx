@@ -9,8 +9,6 @@ import {
   X, 
   Clock, 
   TrendingUp, 
-  Filter,
-  MapPin,
   Star,
   Calendar,
   Wrench,

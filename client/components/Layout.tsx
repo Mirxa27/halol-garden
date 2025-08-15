@@ -39,7 +39,7 @@ export default function Layout({
       "order-tracking": "تتبع الطلب",
     };
 
-    const breadcrumbs = [{ href: "/", label: "الرئيسية", icon: Home }];
+    const breadcrumbs: { href: string; label: string; icon?: any }[] = [{ href: "/", label: "الرئيسية", icon: Home }];
 
     let currentPath = "";
     pathnames.forEach((pathname) => {

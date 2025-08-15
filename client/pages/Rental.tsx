@@ -14,7 +14,6 @@ import {
 import {
   Calendar,
   Star,
-  MapPin,
   Clock,
   Shield,
   CheckCircle,
@@ -22,16 +21,7 @@ import {
   Eye,
   Filter,
   Search,
-  CreditCard,
-  Award,
-  Zap,
   Package,
-  MessageCircle,
-  Phone,
-  ArrowRight,
-  TrendingUp,
-  Users,
-  Sparkles,
   Timer,
   DollarSign,
 } from "lucide-react";
@@ -180,13 +170,13 @@ export default function Rental() {
                 </h1>
 
                 <p className="text-xl md:text-2xl text-muted-foreground text-arabic leading-relaxed max-w-3xl mx-auto mb-8">
-                  استأجر أحدث ال��جهزة الطبية بأسعار مناسبة ومرونة في فترات
+                  استأجر أحدث الأجهزة الطبية بأسعار مناسبة ومرونة في فترات
                   الإيجار مع خدمة توصيل وتركيب مجانية
                 </p>
 
                 <div className="flex flex-wrap justify-center gap-4 mb-8">
                   <Badge className="glass-subtle px-4 py-2 text-sm">
-                    <Zap className="h-4 w-4 ml-2" />
+                    <Clock className="h-4 w-4 ml-2" />
                     توصيل سريع
                   </Badge>
                   <Badge className="glass-subtle px-4 py-2 text-sm">
@@ -323,7 +313,7 @@ export default function Rental() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                        <Zap className="h-4 w-4 text-white" />
+                        <Clock className="h-4 w-4 text-white" />
                       </div>
                       <div>
                         <div className="font-medium text-primary text-arabic">
@@ -498,7 +488,7 @@ export default function Rental() {
                 {/* Load More Button */}
                 <div className="text-center mt-12">
                   <Button className="h-14 px-8 text-lg bg-gradient-to-r from-accent via-primary to-accent hover:scale-105 transition-all rounded-2xl">
-                    <ArrowRight className="ml-2 h-5 w-5" />
+                    <Clock className="ml-2 h-5 w-5" />
                     عرض المزيد من المعدات
                   </Button>
                 </div>

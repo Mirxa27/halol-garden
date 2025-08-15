@@ -4,11 +4,8 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Search,
   Filter,
-  SlidersHorizontal,
   X,
-  ChevronUp,
   ArrowUp,
   Phone,
   MessageCircle,
@@ -339,13 +336,13 @@ export function PullToRefresh({ onRefresh }: { onRefresh: () => void }) {
     let currentY = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (window.scrollY === 0) {
+      if (window.scrollY === 0 && e.touches.length > 0) {
         startY = e.touches[0].clientY;
       }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (window.scrollY === 0 && startY > 0) {
+      if (window.scrollY === 0 && startY > 0 && e.touches.length > 0) {
         currentY = e.touches[0].clientY;
         const distance = Math.max(0, currentY - startY);
         setPullDistance(Math.min(distance, 100));
@@ -386,7 +383,7 @@ export function PullToRefresh({ onRefresh }: { onRefresh: () => void }) {
       }}
     >
       <div className="bg-primary text-primary-foreground rounded-full p-2">
-        <ChevronUp 
+        <X 
           className={`h-4 w-4 transition-transform duration-200 ${
             isRefreshing ? 'animate-spin' : ''
           }`} 
