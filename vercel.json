@@ -2,7 +2,7 @@
   "version": 2,
   "name": "medical-devices-marketplace",
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
+  "outputDirectory": ".next",
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
@@ -36,25 +36,19 @@
     }
   },
   "functions": {
-    "api/[...path].ts": {
+    "pages/api/**/*.ts": {
       "maxDuration": 30,
       "memory": 1024
     },
-    "api/admin/[...path].ts": {
+    "pages/api/admin/**/*.ts": {
       "maxDuration": 60,
       "memory": 1024
     },
-    "api/ai/[...path].ts": {
+    "pages/api/ai/**/*.ts": {
       "maxDuration": 60,
       "memory": 2048
     }
   },
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
