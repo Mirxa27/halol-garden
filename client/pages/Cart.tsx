@@ -3,7 +3,6 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +15,6 @@ import {
   MapPin,
   Truck,
   Shield,
-  Tag,
   Gift,
   ArrowRight,
   CheckCircle
@@ -96,7 +94,7 @@ export default function Cart() {
               </div>
               <h1 className="text-3xl font-bold text-primary mb-4 text-arabic">السلة فارغة</h1>
               <p className="text-muted-foreground mb-8 text-arabic">
-                ابدأ التسوق واكتشف مجموعة واسعة من ال��جهزة الطبية عالية الجودة
+                ابدأ التسوق واكتشف مجموعة واسعة من الأجهزة الطبية عالية الجودة
               </p>
               <Button className="bg-primary hover:bg-primary/90 text-arabic">
                 تصفح المنتجات

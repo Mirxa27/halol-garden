@@ -285,7 +285,7 @@ export class ErrorReporter {
     window.addEventListener('unhandledrejection', (event) => {
       this.logger.error('Unhandled Promise Rejection', {
         reason: event.reason,
-        stack: event.reason?.stack,
+        stack: (event.reason as Error)?.stack, // Cast to Error to access stack
       });
     });
   }

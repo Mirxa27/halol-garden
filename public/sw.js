@@ -32,7 +32,7 @@ const CACHEABLE_APIS = [
 ];
 
 // Install event - cache static assets
-self.addEventListener('install', (event) => {
+self.addEventListener('install', (event: ExtendableEvent) => {
   console.log('Service Worker installing...');
   
   event.waitUntil(
@@ -51,43 +51,46 @@ self.addEventListener('install', (event) => {
 });
 
 // Activate event - clean up old caches
-self.addEventListener('activate', (event) => {
+self.addEventListener('activate', (event: ExtendableEvent) => {
   console.log('Service Worker activating...');
   
   event.waitUntil(
-    Promise.all([
-      // Clean up old caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName.includes('static-') && cacheName !== STATIC_CACHE) {
-              console.log('Deleting old static cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-            if (cacheName.includes('dynamic-') && cacheName !== DYNAMIC_CACHE) {
-              console.log('Deleting old dynamic cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-            if (cacheName.includes('api-') && cacheName !== API_CACHE) {
-              console.log('Deleting old API cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-            if (cacheName.includes('images-') && cacheName !== IMAGE_CACHE) {
-              console.log('Deleting old image cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      }),
-      
-      // Take control of all pages
-      self.clients.claim()
-    ])
+    Promise.all(
+      [
+        // Clean up old caches
+        caches.keys().then((cacheNames) => {
+          return Promise.all(
+            cacheNames.map((cacheName) => {
+              if (cacheName.includes('static-') && cacheName !== STATIC_CACHE) {
+                console.log('Deleting old static cache:', cacheName);
+                return caches.delete(cacheName);
+              }
+              if (cacheName.includes('dynamic-') && cacheName !== DYNAMIC_CACHE) {
+                console.log('Deleting old dynamic cache:', cacheName);
+                return caches.delete(cacheName);
+              }
+              if (cacheName.includes('api-') && cacheName !== API_CACHE) {
+                console.log('Deleting old API cache:', cacheName);
+                return caches.delete(cacheName);
+              }
+              if (cacheName.includes('images-') && cacheName !== IMAGE_CACHE) {
+                console.log('Deleting old image cache:', cacheName);
+                return caches.delete(cacheName);
+              }
+              return Promise.resolve(); // Ensure a Promise is returned for all cases
+            })
+          );
+        }),
+        
+        // Take control of all pages
+        self.clients.claim()
+      ]
+    )
   );
 });
 
 // Fetch event - handle all network requests
-self.addEventListener('fetch', (event) => {
+self.addEventListener('fetch', (event: FetchEvent) => {
   const { request } = event;
   const url = new URL(request.url);
   
@@ -114,7 +117,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // Handle API requests with network-first strategy
-async function handleAPIRequest(request) {
+async function handleAPIRequest(request: Request) {
   const url = new URL(request.url);
   
   // Check if this API should be cached
@@ -178,7 +181,7 @@ async function handleAPIRequest(request) {
 }
 
 // Handle image requests with cache-first strategy
-async function handleImageRequest(request) {
+async function handleImageRequest(request: Request) {
   const cachedResponse = await caches.match(request);
   
   if (cachedResponse) {
@@ -233,7 +236,7 @@ async function handleImageRequest(request) {
 }
 
 // Handle static assets with cache-first strategy
-async function handleStaticRequest(request) {
+async function handleStaticRequest(request: Request) {
   const cachedResponse = await caches.match(request);
   
   if (cachedResponse) {
@@ -256,7 +259,7 @@ async function handleStaticRequest(request) {
 }
 
 // Handle page requests with network-first strategy
-async function handlePageRequest(request) {
+async function handlePageRequest(request: Request) {
   try {
     const networkResponse = await fetch(request);
     
@@ -338,22 +341,22 @@ async function handlePageRequest(request) {
 }
 
 // Utility functions
-function isAPIRequest(url) {
+function isAPIRequest(url: URL) {
   return url.pathname.startsWith('/api/');
 }
 
-function isImageRequest(url) {
+function isImageRequest(url: URL) {
   return /\.(jpg|jpeg|png|gif|webp|svg|ico)$/i.test(url.pathname);
 }
 
-function isStaticAsset(url) {
+function isStaticAsset(url: URL) {
   return /\.(js|css|woff|woff2|ttf|eot)$/i.test(url.pathname) ||
          url.pathname === '/manifest.json' ||
          url.pathname === '/favicon.ico';
 }
 
 // Message handling for cache management
-self.addEventListener('message', (event) => {
+self.addEventListener('message', (event: ExtendableMessageEvent) => {
   const { data } = event;
   
   switch (data.type) {
@@ -367,7 +370,9 @@ self.addEventListener('message', (event) => {
       
     case 'GET_CACHE_STATS':
       getCacheStats().then(stats => {
-        event.source.postMessage({ type: 'CACHE_STATS', stats });
+        if (event.source) {
+          event.source.postMessage({ type: 'CACHE_STATS', stats });
+        }
       });
       break;
       
@@ -378,7 +383,7 @@ self.addEventListener('message', (event) => {
 });
 
 // Update specific caches
-async function updateSpecificCaches(cacheNames) {
+async function updateSpecificCaches(cacheNames: string[]) {
   for (const cacheName of cacheNames) {
     try {
       await caches.delete(cacheName);
@@ -399,6 +404,7 @@ async function clearOldCaches() {
         console.log('Clearing old cache:', cacheName);
         return caches.delete(cacheName);
       }
+      return Promise.resolve(); // Ensure a Promise is returned for all cases
     })
   );
 }
@@ -406,7 +412,7 @@ async function clearOldCaches() {
 // Get cache statistics
 async function getCacheStats() {
   const cacheNames = await caches.keys();
-  const stats = {};
+  const stats: { [key: string]: { count: number; urls: string[] } } = {};
   
   for (const cacheName of cacheNames) {
     const cache = await caches.open(cacheName);
@@ -421,7 +427,7 @@ async function getCacheStats() {
 }
 
 // Preload URLs
-async function preloadUrls(urls) {
+async function preloadUrls(urls: string[]) {
   const cache = await caches.open(DYNAMIC_CACHE);
   
   await Promise.all(
@@ -440,7 +446,7 @@ async function preloadUrls(urls) {
 }
 
 // Background sync for offline actions
-self.addEventListener('sync', (event) => {
+self.addEventListener('sync', (event: SyncEvent) => {
   if (event.tag === 'background-sync') {
     event.waitUntil(handleBackgroundSync());
   }

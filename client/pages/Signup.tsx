@@ -358,7 +358,7 @@ export default function Signup() {
             {/* Sign In Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-muted-foreground text-arabic">
-                لديك ��ساب بالفعل؟{' '}
+                لديك حساب بالفعل؟{' '}
                 <Link to="/login" className="text-primary hover:underline font-medium">
                   تسجيل الدخول
                 </Link>

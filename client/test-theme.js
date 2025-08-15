@@ -6,7 +6,7 @@ function testThemeSystem() {
   
   // Check if theme context is available
   const root = document.documentElement;
-  const themeToggle = document.querySelector('[data-theme-toggle]');
+  // const themeToggle = document.querySelector('[data-theme-toggle]'); // Removed unused variable
   
   console.log('🔍 Current CSS Variables:');
   const cssVars = {

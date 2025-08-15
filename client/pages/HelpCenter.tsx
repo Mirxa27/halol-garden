@@ -14,23 +14,17 @@ import {
   Mail,
   Video,
   FileText,
-  ChevronRight,
   ThumbsUp,
   ThumbsDown,
-  Star,
   Clock,
-  Users,
-  CheckCircle,
-  AlertTriangle,
-  Info,
   Lightbulb,
   Settings,
   CreditCard,
   Shield,
-  Truck,
   Wrench,
   Calendar,
-  ShoppingCart
+  ShoppingCart,
+  Eye // Added Eye import
 } from "lucide-react";
 
 interface FAQItem {
@@ -87,7 +81,7 @@ export default function HelpCenter() {
     {
       id: '2',
       question: 'ما هي طرق الدفع المتاحة؟',
-      answer: 'نوفر عدة طرق دفع آمنة: البطاقات الائتمانية (فيزا، ماستركارد)، التحويل البنكي، دفع عند الاستلام، محافظ إلكترون��ة (STC Pay، Apple Pay). جميع المدفوعات مشفرة وآمنة.',
+      answer: 'نوفر عدة طرق دفع آمنة: البطاقات الائتمانية (فيزا، ماستركارد)، التحويل البنكي، دفع عند الاستلام، محافظ إلكترونية (STC Pay، Apple Pay). جميع المدفوعات مشفرة وآمنة.',
       category: 'payments',
       categoryAr: 'المدفوعات',
       helpful: 18,
@@ -381,16 +375,13 @@ export default function HelpCenter() {
                           
                           <div className="flex items-center justify-between text-xs text-muted-foreground">
                             <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                <span>{article.readTime} دقائق</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Eye className="h-3 w-3" />
-                                <span>{article.views}</span>
-                              </div>
+                              <Clock className="h-3 w-3" />
+                              <span>{article.readTime} دقائق</span>
                             </div>
-                            <ChevronRight className="h-4 w-4 text-primary" />
+                            <div className="flex items-center gap-1">
+                              <Eye className="h-3 w-3" />
+                              <span>{article.views}</span>
+                            </div>
                           </div>
                         </CardContent>
                       </Card>

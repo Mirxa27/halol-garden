@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { 
   Star, 
   ShoppingCart, 
@@ -20,20 +18,11 @@ import {
   Clock,
   Phone,
   MessageCircle,
-  Award,
-  Package,
-  RefreshCcw,
-  Zap,
   Users,
-  ThumbsUp,
-  ThumbsDown,
-  AlertCircle,
-  ArrowRight,
+  RefreshCcw,
   Plus,
   Minus,
-  Eye,
-  Calendar,
-  Filter
+  Eye
 } from "lucide-react";
 
 export default function ProductDetails() {

@@ -7,8 +7,6 @@ import {
   ShoppingCart, 
   User,
   Search,
-  MessageCircle,
-  Phone
 } from "lucide-react";
 
 export default function MobileFooterNav() {

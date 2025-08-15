@@ -4,7 +4,6 @@ import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,25 +20,21 @@ import {
   MessageCircle,
   Award,
   CheckCircle,
-  AlertCircle,
   Wrench,
   Users,
   Shield,
   Truck,
   Camera,
-  FileText,
-  Calculator,
-  Timer,
-  ThumbsUp,
-  ThumbsDown,
-  Eye,
-  Heart,
-  Share2,
-  BookOpen,
   Zap,
   TrendingUp,
   Package,
-  Download
+  Heart,
+  Share2,
+  Calculator,
+  Timer,
+  ThumbsUp,
+  Eye,
+  ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -96,7 +91,6 @@ export default function ServiceDetails() {
       responseTime: "خلال ساعة",
       location: "الرياض",
       established: "2015",
-      verified: true,
       specialties: ["أجهزة التصوير", "معدات الطوارئ", "أجهزة المراقبة"],
       certifications: ["ISO 9001", "FDA Approved", "سعودي معتمد"],
       badges: ["خبير معتمد", "استجابة سريعة", "ضمان ذهبي"],
@@ -161,7 +155,7 @@ export default function ServiceDetails() {
       rating: 5,
       date: "2024-01-15",
       title: "استجابة سريعة وحل فعال",
-      comment: "تواصلوا معي خلال نصف ساعة وحضروا في نفس ا��يوم. حلوا المشكلة بسرعة ومهنية.",
+      comment: "تواصلوا معي خلال نصف ساعة وحضروا في نفس اليوم. حلوا المشكلة بسرعة ومهنية.",
       serviceType: "صيانة طارئة",
       verified: true,
       helpful: 18
@@ -736,7 +730,7 @@ export default function ServiceDetails() {
                                         : 'text-muted-foreground'
                                     }`}
                                   />
-                                ))}
+                                )}
                                 <span className="text-sm text-muted-foreground mr-2">•</span>
                                 <Badge variant="outline" className="text-xs">
                                   {review.serviceType}

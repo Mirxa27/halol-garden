@@ -195,7 +195,7 @@ export default function Login() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-arabic">كل��ة المرور</Label>
+                    <Label htmlFor="password" className="text-arabic">كلمة المرور</Label>
                     <div className="relative">
                       <Button
                         type="button"

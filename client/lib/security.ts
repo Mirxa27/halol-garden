@@ -80,7 +80,7 @@ export class CSPHelper {
   static generateNonce(): string {
     const array = new Uint8Array(16);
     crypto.getRandomValues(array);
-    return btoa(String.fromCharCode(...array));
+    return btoa(String.fromCharCode(...Array.from(array))); // Fix: Use Array.from for Uint8Array
   }
 
   static createCSPHeader(): string {

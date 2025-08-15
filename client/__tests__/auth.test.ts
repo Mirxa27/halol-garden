@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useAuthStore, tokenUtils, authFetch } from '../lib/auth';
-import { mockFetch, mockFetchError, createMockUser, waitForAsync } from './setup';
+import { mockFetch, mockFetchError, createMockUser } from './setup';
 
 describe('Authentication System', () => {
   beforeEach(() => {
@@ -333,7 +333,7 @@ describe('Authentication System', () => {
       // Second call with new token succeeds
       mockFetch({ success: true });
 
-      const { result } = renderHook(() => useAuthStore());
+      renderHook(() => useAuthStore()); // Render hook to ensure store is initialized
 
       await act(async () => {
         await authFetch('/api/test');
@@ -359,7 +359,7 @@ describe('Authentication System', () => {
 
       try {
         await authFetch('/api/test');
-      } catch (error) {
+      } catch (error: any) { // Explicitly type error as any
         expect(error.message).toBe('Session expired');
       }
 

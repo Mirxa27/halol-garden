@@ -130,15 +130,14 @@ describe('Security Utilities', () => {
       expect(RateLimit.getAttempts('test-key')).toBe(5);
     });
 
-    it('should reset attempts after time window', () => {
+    it('should reset attempts after time window', async () => {
       // Use very short window for testing
       expect(RateLimit.isAllowed('test-key', 1, 1)).toBe(true);
       expect(RateLimit.isAllowed('test-key', 1, 1)).toBe(false);
       
       // Wait for window to pass
-      setTimeout(() => {
-        expect(RateLimit.isAllowed('test-key', 1, 1)).toBe(true);
-      }, 2);
+      await new Promise(resolve => setTimeout(resolve, 2));
+      expect(RateLimit.isAllowed('test-key', 1, 1)).toBe(true);
     });
 
     it('should manually reset attempts', () => {

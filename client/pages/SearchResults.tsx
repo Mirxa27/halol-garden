@@ -67,7 +67,7 @@ export default function SearchResults() {
       id: 1,
       type: 'service',
       title: 'صيانة جهاز الأشعة السينية',
-      description: 'خدمة صيانة شاملة لأجهزة الأشعة السي��ية من جميع الأنواع',
+      description: 'خدمة صيانة شاملة لأجهزة الأشعة السينية من جميع الأنواع',
       provider: 'شركة الرعاية الطبية المتقدمة',
       rating: 4.9,
       reviews: 124,
@@ -102,7 +102,7 @@ export default function SearchResults() {
       rating: 4.7,
       reviews: 156,
       price: 250,
-      priceType: 'يوم��',
+      priceType: 'يومي',
       location: 'الدمام',
       category: 'rental',
       categoryAr: 'إيجار',
@@ -152,7 +152,7 @@ export default function SearchResults() {
   const sortOptions = [
     { value: 'relevance', label: 'الأكثر صلة' },
     { value: 'rating', label: 'التقييم' },
-    { value: 'price-low', label: 'السع��: من الأقل للأعلى' },
+    { value: 'price-low', label: 'السعر: من الأقل للأعلى' },
     { value: 'price-high', label: 'السعر: من الأعلى للأقل' },
     { value: 'newest', label: 'الأحدث' }
   ];
@@ -374,21 +374,21 @@ export default function SearchResults() {
                                     viewMode === 'grid' ? 'text-xl' : 'text-2xl'
                                   }`}>{result.price}</span>
                                   <span className="text-sm text-muted-foreground">ريال</span>
-                                  {result.priceType && (
-                                    <span className="text-xs text-muted-foreground text-arabic">/{result.priceType}</span>
+                                  {(result as any).priceType && ( // Cast to any to access priceType
+                                    <span className="text-xs text-muted-foreground text-arabic">/{(result as any).priceType}</span>
                                   )}
                                 </div>
-                                {result.originalPrice && result.originalPrice > result.price && (
+                                {(result as any).originalPrice && (result as any).originalPrice > result.price && ( // Cast to any
                                   <div className="text-sm text-muted-foreground line-through">
-                                    {result.originalPrice} ريال
+                                    {(result as any).originalPrice} ريال
                                   </div>
                                 )}
-                                {result.type === 'product' && result.inStock && (
+                                {result.type === 'product' && (result as any).inStock && ( // Cast to any
                                   <Badge className="bg-success text-success-foreground text-xs">
                                     متوفر
                                   </Badge>
                                 )}
-                                {result.type === 'rental' && result.available && (
+                                {result.type === 'rental' && (result as any).available && ( // Cast to any
                                   <Badge className="bg-accent text-accent-foreground text-xs">
                                     متاح للإيجار
                                   </Badge>

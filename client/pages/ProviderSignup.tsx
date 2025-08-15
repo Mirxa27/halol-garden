@@ -5,40 +5,27 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Building, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin,
-  Upload,
-  FileText,
-  Camera,
   CheckCircle,
-  AlertCircle,
-  Star,
-  Shield,
-  Award,
-  Users,
-  Calendar,
-  CreditCard,
   Eye,
   EyeOff,
   ArrowRight,
   ArrowLeft,
   Info,
   Clock,
-  Package,
   Wrench,
+  Calendar,
+  Package,
   Zap,
-  Globe,
-  MessageCircle
+  Shield,
+  Users,
+  CreditCard,
+  MessageCircle,
+  Star
 } from "lucide-react";
 
 interface FormData {
@@ -174,7 +161,7 @@ export default function ProviderSignup() {
   ];
 
   const saudiCities = [
-    'الرياض', 'جدة', 'مكة المكرمة', 'المدينة ا��منورة', 'الدمام', 'الخبر', 'الظهران',
+    'الرياض', 'جدة', 'مكة المكرمة', 'المدينة المنورة', 'الدمام', 'الخبر', 'الظهران',
     'الطائف', 'بريدة', 'تبوك', 'الجبيل', 'حائل', 'الخرج', 'الأحساء', 'القصيم',
     'أبها', 'نجران', 'الباحة', 'ينبع', 'سكاكا', 'عرعر', 'القريات'
   ];
@@ -210,16 +197,6 @@ export default function ProviderSignup() {
       coverageAreas: checked 
         ? [...prev.coverageAreas, city]
         : prev.coverageAreas.filter(c => c !== city)
-    }));
-  };
-
-  const handleFileUpload = (documentType: keyof FormData['documents'], file: File | null) => {
-    setFormData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [documentType]: file
-      }
     }));
   };
 
@@ -288,7 +265,7 @@ export default function ProviderSignup() {
               </div>
               <h1 className="text-3xl font-bold text-primary mb-4 text-arabic">تسجيل مقدم خدمة</h1>
               <p className="text-lg text-muted-foreground text-arabic leading-relaxed max-w-2xl mx-auto">
-                انضم إلى ش��كتنا من مقدمي الخدمات المعتمدين واكتشف فرص عمل جديدة في مجال الأجهزة الطبية
+                انضم إلى شبكتنا من مقدمي الخدمات المعتمدين واكتشف فرص عمل جديدة في مجال الأجهزة الطبية
               </p>
             </div>
 
@@ -417,7 +394,7 @@ export default function ProviderSignup() {
                         <h4 className="font-medium text-accent text-arabic">معلومات مهمة:</h4>
                         <ul className="text-sm text-muted-foreground text-arabic mt-2 space-y-1">
                           <li>• تأكد من صحة رقم السجل التجاري والرقم الضريبي</li>
-                          <li>• سيتم التحقق من جميع المعلومات ال��دخلة</li>
+                          <li>• سيتم التحقق من جميع المعلومات المدخلة</li>
                           <li>• المعلومات المطلوبة بعلامة (*) إجبارية</li>
                         </ul>
                       </div>
@@ -672,7 +649,7 @@ export default function ProviderSignup() {
                     <Checkbox
                       id="emergencyService"
                       checked={formData.emergencyService}
-                      onCheckedChange={(checked) => handleInputChange('emergencyService', checked)}
+                      onCheckedChange={(checked) => handleInputChange('emergencyService', checked as boolean)}
                     />
                     <label htmlFor="emergencyService" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 mr-2 text-arabic">
                       نقدم خدمات طوارئ على مدار الساعة
@@ -731,7 +708,7 @@ export default function ProviderSignup() {
                       required
                     />
                     {formData.confirmPassword && formData.password !== formData.confirmPassword && (
-                      <p className="text-sm text-destructive mt-1 text-arabic">كلمات المرور غير متطابق��</p>
+                      <p className="text-sm text-destructive mt-1 text-arabic">كلمات المرور غير متطابقة</p>
                     )}
                   </div>
 
@@ -743,7 +720,7 @@ export default function ProviderSignup() {
                       <label className="flex items-start gap-3">
                         <Checkbox
                           checked={formData.termsAccepted}
-                          onCheckedChange={(checked) => handleInputChange('termsAccepted', checked)}
+                          onCheckedChange={(checked) => handleInputChange('termsAccepted', checked as boolean)}
                           className="mt-1"
                         />
                         <span className="text-sm text-arabic">
@@ -754,7 +731,7 @@ export default function ProviderSignup() {
                       <label className="flex items-start gap-3">
                         <Checkbox
                           checked={formData.privacyAccepted}
-                          onCheckedChange={(checked) => handleInputChange('privacyAccepted', checked)}
+                          onCheckedChange={(checked) => handleInputChange('privacyAccepted', checked as boolean)}
                           className="mt-1"
                         />
                         <span className="text-sm text-arabic">
@@ -765,7 +742,7 @@ export default function ProviderSignup() {
                       <label className="flex items-start gap-3">
                         <Checkbox
                           checked={formData.dataProcessingAccepted}
-                          onCheckedChange={(checked) => handleInputChange('dataProcessingAccepted', checked)}
+                          onCheckedChange={(checked) => handleInputChange('dataProcessingAccepted', checked as boolean)}
                           className="mt-1"
                         />
                         <span className="text-sm text-arabic">

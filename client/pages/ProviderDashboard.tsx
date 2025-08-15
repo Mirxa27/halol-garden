@@ -6,28 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
-  BarChart3, 
   DollarSign, 
-  Calendar, 
-  Users, 
   Star,
   TrendingUp,
   MessageCircle,
-  Phone,
   Eye,
   Edit,
   Plus,
   Clock,
   CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Package,
-  Truck,
-  Award,
+  MapPin,
   Settings,
-  FileText,
-  Camera,
-  MapPin
+  Camera
 } from "lucide-react";
 
 export default function ProviderDashboard() {
@@ -85,7 +75,7 @@ export default function ProviderDashboard() {
       statusAr: "مكتمل",
       amount: 800,
       priority: "medium",
-      location: "الري��ض",
+      location: "الرياض",
       rating: 5
     },
     {

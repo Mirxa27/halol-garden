@@ -16,15 +16,10 @@ import {
   Shield, 
   Lock,
   CheckCircle,
-  AlertTriangle,
   Plus,
   Trash2,
   Edit,
-  Star,
-  Clock,
-  Receipt,
-  FileText,
-  Download
+  Receipt
 } from "lucide-react";
 
 interface PaymentMethod {
@@ -76,7 +71,7 @@ export default function Payment() {
       nameAr: 'البطاقات الائتمانية والخصم',
       icon: CreditCard,
       description: 'Pay securely with Visa, Mastercard, or Mada',
-      descriptionAr: 'ادفع بأمان باستخدام فيزا أو ماستركار�� أو مدى',
+      descriptionAr: 'ادفع بأمان باستخدام فيزا أو ماستركارد أو مدى',
       processing_time: 'Instant',
       processing_timeAr: 'فوري',
       enabled: true
@@ -329,9 +324,7 @@ export default function Payment() {
                               <div className="flex items-center gap-2">
                                 <span className="font-semibold">**** {card.last4}</span>
                                 {card.isDefault && (
-                                  <Badge className="bg-primary text-primary-foreground text-xs">
-                                    افتراضي
-                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">افتراضي</Badge>
                                 )}
                               </div>
                               <p className="text-sm text-muted-foreground">

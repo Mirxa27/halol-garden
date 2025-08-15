@@ -18,7 +18,6 @@ import {
   Circle,
   Star,
   MapPin,
-  Clock,
   User,
   Building
 } from "lucide-react";

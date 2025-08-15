@@ -129,8 +129,8 @@ const App = () => (
             element={
               <RouteWrapper 
                 title="تسجيل الدخول"
-                description="تسجيل الدخول إلى منصة حلول ا��أجهزة الطبية"
-                keywords="تسجيل دخول، حسا��، أمان"
+                description="تسجيل الدخول إلى منصة حلول الأجهزة الطبية"
+                keywords="تسجيل دخول، حساب، أمان"
               >
                 <Login />
               </RouteWrapper>

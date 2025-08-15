@@ -217,7 +217,7 @@ function generateCacheKey(req: Request, config: CacheConfig): string {
         
       default:
         // Custom header or field
-        const value = req.get(field) || req.body?.[field] || '';
+        const value = req.get(field) || (req.body as any)?.[field] || ''; // Cast req.body to any
         varyParts.push(`${field}:${createHash('md5').update(String(value)).digest('hex')}`);
     }
   });
@@ -344,7 +344,7 @@ export const cacheMiddleware = {
     type: 'memory',
     keyPrefix: 'user',
     varyBy: ['user', 'query'],
-    skipIf: (req) => !req.user,
+    skipIf: (req) => !(req as any).user, // Cast req to any
   }),
   
   // Search results cache
@@ -392,7 +392,8 @@ export function getCacheStats(req: Request, res: Response) {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    cache: stats,
+    environment: process.env.NODE_ENV,
+    version: process.env.npm_package_version || '1.0.0',
   });
 }
 

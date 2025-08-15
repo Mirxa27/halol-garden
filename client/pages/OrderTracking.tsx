@@ -12,16 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Package, 
   Truck, 
-  MapPin, 
-  Clock, 
   CheckCircle,
   Star,
   MessageCircle,
   Phone,
   Download,
   RefreshCw,
-  AlertTriangle,
-  Calendar,
   User,
   FileText,
   Camera,
@@ -30,18 +26,13 @@ import {
   Timer,
   Receipt,
   Shield,
-  AlertCircle,
-  Edit,
   Send,
   Eye,
   Activity,
-  Zap,
   ThumbsUp,
-  ThumbsDown,
-  History,
-  Bell,
-  Settings,
-  HelpCircle
+  HelpCircle,
+  Clock, // Added Clock import
+  Bell // Added Bell import
 } from "lucide-react";
 
 export default function OrderTracking() {
@@ -61,6 +52,7 @@ export default function OrderTracking() {
       }, 30000); // Update every 30 seconds
       return () => clearInterval(interval);
     }
+    return () => {}; // Explicitly return nothing if autoRefresh is false
   }, [autoRefresh]);
 
   // Mock order data with more detailed information
@@ -529,10 +521,6 @@ export default function OrderTracking() {
                                 <span className="text-muted-foreground text-arabic">الموعد المجدول:</span>
                                 <span className="font-medium">{formatDateTime(orderData.scheduledDate)}</span>
                               </div>
-                              <div className="flex justify-between">
-                                <span className="text-muted-foreground text-arabic">الوقت المتوقع للانتهاء:</span>
-                                <span className="font-medium">{formatDateTime(orderData.estimatedCompletion)}</span>
-                              </div>
                               {orderData.actualStartTime && (
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground text-arabic">وقت البدء الفعلي:</span>
@@ -614,7 +602,7 @@ export default function OrderTracking() {
                               <p className="font-medium">{orderData.warranty.startDate}</p>
                             </div>
                             <div>
-                              <span className="text-muted-foreground text-arabic">تا��يخ الانتهاء:</span>
+                              <span className="text-muted-foreground text-arabic">تايخ الانتهاء:</span>
                               <p className="font-medium">{orderData.warranty.endDate}</p>
                             </div>
                             <div>
@@ -910,7 +898,7 @@ export default function OrderTracking() {
                     </div>
                     <div className="border-t border-border pt-3">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-arabic">الإ��مالي</span>
+                        <span className="font-semibold text-arabic">الإجمالي</span>
                         <span className="font-bold text-primary">{(orderData.amount * 1.15).toFixed(0)} ريال</span>
                       </div>
                     </div>
