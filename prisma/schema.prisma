@@ -1,0 +1,1203 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USER MANAGEMENT ====================
+
+enum UserType {
+  HEALTHCARE_PROVIDER
+  EQUIPMENT_SUPPLIER
+  MAINTENANCE_ENGINEER
+  CUSTOMER_SERVICE
+  ADMIN
+  INDIVIDUAL_CUSTOMER
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  EMAIL_VERIFIED
+  DOCUMENTS_VERIFIED
+  FULLY_VERIFIED
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  passwordHash       String
+  firstName          String
+  lastName           String
+  phoneNumber        String
+  userType           UserType
+  status             UserStatus         @default(PENDING_VERIFICATION)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  profileImage       String?
+  preferredLanguage  String             @default("en")
+  twoFactorEnabled   Boolean            @default(false)
+  emailVerifiedAt    DateTime?
+  lastLoginAt        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relations
+  healthcareProfile  HealthcareProvider?
+  supplierProfile    EquipmentSupplier?
+  engineerProfile    MaintenanceEngineer?
+  customerServiceProfile CustomerServiceProfile?
+  adminProfile       AdminProfile?
+  individualProfile  IndividualCustomer?
+  
+  sessions           Session[]
+  auditLogs          AuditLog[]
+  orders             Order[]
+  rentals            RentalAgreement[]
+  maintenanceRequests MaintenanceRequest[]
+  chatSessions       ChatParticipant[]
+  notifications      Notification[]
+  reviews            ProductReview[]
+  questions          ProductQuestion[]
+  answers            ProductAnswer[]
+  wishlist           WishlistItem[]
+  cart               Cart?
+  supportTickets     SupportTicket[]
+  
+  @@index([email])
+  @@index([userType])
+  @@index([status])
+}
+
+model HealthcareProvider {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationName    String
+  organizationType    String
+  licenseNumber       String
+  taxRegistrationNumber String?
+  numberOfBeds        Int?
+  yearEstablished     Int?
+  emergencyContact    String?
+  
+  // JSON fields for complex data
+  address             Json
+  specializations     Json
+  accreditations      Json
+  contactPersons      Json
+  operatingHours      Json
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([organizationType])
+}
+
+model EquipmentSupplier {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName           String
+  businessRegistrationNumber String
+  taxRegistrationNumber String
+  yearEstablished       Int
+  returnPolicy          String   @db.Text
+  warrantyTerms         String   @db.Text
+  
+  // JSON fields for complex data
+  address               Json
+  warehouseLocations    Json
+  productCategories     Json
+  brands                Json
+  certifications        Json
+  bankDetails           Json
+  deliveryCapabilities  Json
+  
+  // Relations
+  products              Product[]
+  orders                Order[]
+  rentals               RentalAgreement[]
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([companyName])
+}
+
+model MaintenanceEngineer {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName             String?
+  isFreelancer            Boolean  @default(true)
+  licenseNumber           String
+  experienceYears         Int
+  hourlyRate              Float?
+  emergencyServiceAvailable Boolean @default(false)
+  emergencyServiceSurcharge Float?
+  
+  // JSON fields for complex data
+  specializations         Json
+  certifications          Json
+  serviceAreas            Json
+  availability            Json
+  toolsAndEquipment       Json
+  insuranceCoverage       Json?
+  
+  // Relations
+  assignments             ServiceAssignment[]
+  workOrders              ServiceWorkOrder[]
+  contracts               ServiceContract[]
+  
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  
+  @@index([isFreelancer])
+}
+
+model CustomerServiceProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId       String
+  department       String
+  supervisor       String?
+  
+  // JSON fields
+  languages        Json
+  specializations  Json
+  shiftSchedule    Json
+  performanceMetrics Json?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model AdminProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId       String
+  department       String
+  accessLevel      String
+  
+  // JSON fields
+  permissions      Json
+  managedRegions   Json?
+  managedCategories Json?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model IndividualCustomer {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dateOfBirth          DateTime?
+  nationalId           String?
+  medicalLicenseNumber String?
+  profession           String?
+  preferredPaymentMethod String?
+  
+  // JSON fields
+  address              Json
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  timestamp  DateTime @default(now())
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+}
+
+// ==================== PRODUCT MANAGEMENT ====================
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  OUT_OF_STOCK
+  DISCONTINUED
+  PENDING_APPROVAL
+}
+
+enum ProductCondition {
+  NEW
+  REFURBISHED
+  USED_EXCELLENT
+  USED_GOOD
+  USED_FAIR
+}
+
+enum AvailabilityType {
+  SALE
+  RENT
+  BOTH
+}
+
+model Product {
+  id                  String           @id @default(cuid())
+  supplierId          String
+  supplier            EquipmentSupplier @relation(fields: [supplierId], references: [id])
+  sku                 String           @unique
+  name                String
+  nameAr              String?
+  description         String           @db.Text
+  descriptionAr       String?          @db.Text
+  category            String
+  subcategory         String?
+  brand               String
+  model               String
+  manufacturerCountry String?
+  condition           ProductCondition
+  availabilityType    AvailabilityType
+  status              ProductStatus    @default(DRAFT)
+  featured            Boolean          @default(false)
+  approvedAt          DateTime?
+  approvedBy          String?
+  
+  // JSON fields
+  images              Json
+  specifications      Json
+  certifications      Json
+  warranty            Json
+  dimensions          Json?
+  weight              Float?
+  tags                Json
+  
+  // Relations
+  salesDetails        SalesProduct?
+  rentalDetails       RentalProduct?
+  reviews             ProductReview[]
+  questions           ProductQuestion[]
+  wishlistItems       WishlistItem[]
+  orderItems          OrderItem[]
+  cartItems           CartItem[]
+  rentalItems         RentalItem[]
+  
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  
+  @@index([supplierId])
+  @@index([category])
+  @@index([status])
+  @@index([sku])
+  @@index([name])
+}
+
+model SalesProduct {
+  id              String   @id @default(cuid())
+  productId       String   @unique
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  basePrice       Float
+  discountedPrice Float?
+  taxRate         Float?
+  priceValidUntil DateTime?
+  
+  // JSON fields
+  bulkPricing     Json?
+  inventory       Json
+  shipping        Json
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model RentalProduct {
+  id                   String   @id @default(cuid())
+  productId            String   @unique
+  product              Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  dailyRate            Float
+  weeklyRate           Float
+  monthlyRate          Float
+  securityDeposit      Float
+  deliveryFee          Float?
+  setupFee             Float?
+  minimumRentalPeriod  Int
+  maximumRentalPeriod  Int?
+  
+  // JSON fields
+  inventory            Json
+  rentalTerms          Json
+  maintenanceSchedule  Json
+  
+  // Relations
+  rentalUnits          RentalUnit[]
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model RentalUnit {
+  id                 String         @id @default(cuid())
+  rentalProductId    String
+  rentalProduct      RentalProduct  @relation(fields: [rentalProductId], references: [id])
+  serialNumber       String         @unique
+  condition          String
+  status             String
+  lastMaintenanceDate DateTime?
+  nextMaintenanceDate DateTime?
+  currentRentalId    String?
+  location           String?
+  notes              String?        @db.Text
+  
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  @@index([rentalProductId])
+  @@index([status])
+}
+
+model ProductReview {
+  id               String   @id @default(cuid())
+  productId        String
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  rating           Int
+  title            String?
+  comment          String   @db.Text
+  verifiedPurchase Boolean  @default(false)
+  helpful          Int      @default(0)
+  notHelpful       Int      @default(0)
+  
+  // JSON fields
+  pros             Json?
+  cons             Json?
+  images           Json?
+  response         Json?
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([userId])
+}
+
+model ProductQuestion {
+  id        String          @id @default(cuid())
+  productId String
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id])
+  question  String          @db.Text
+  
+  answers   ProductAnswer[]
+  
+  createdAt DateTime        @default(now())
+  
+  @@index([productId])
+}
+
+model ProductAnswer {
+  id               String          @id @default(cuid())
+  questionId       String
+  question         ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User            @relation(fields: [userId], references: [id])
+  answer           String          @db.Text
+  isSupplierAnswer Boolean         @default(false)
+  helpful          Int             @default(0)
+  
+  createdAt        DateTime        @default(now())
+  
+  @@index([questionId])
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  notes      String?  @db.Text
+  priceAlert Json?
+  
+  addedAt    DateTime @default(now())
+  
+  @@unique([userId, productId])
+  @@index([userId])
+}
+
+// ==================== ORDER MANAGEMENT ====================
+
+enum OrderType {
+  SALE
+  RENTAL
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PROCESSING
+  CONFIRMED
+  PREPARING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum DeliveryStatus {
+  PENDING
+  SCHEDULED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  RETURNED
+}
+
+model Order {
+  id                 String         @id @default(cuid())
+  orderNumber        String         @unique
+  type               OrderType
+  customerId         String
+  customer           User           @relation(fields: [customerId], references: [id])
+  supplierId         String
+  supplier           EquipmentSupplier @relation(fields: [supplierId], references: [id])
+  status             OrderStatus    @default(DRAFT)
+  subtotal           Float
+  taxAmount          Float
+  shippingCost       Float
+  discount           Float
+  total              Float
+  currency           String         @default("USD")
+  paymentStatus      PaymentStatus  @default(PENDING)
+  paymentMethod      String?
+  deliveryStatus     DeliveryStatus @default(PENDING)
+  notes              String?        @db.Text
+  internalNotes      String?        @db.Text
+  cancellationReason String?        @db.Text
+  
+  // JSON fields
+  paymentDetails     Json?
+  shippingAddress    Json
+  billingAddress     Json
+  deliveryDetails    Json?
+  
+  // Relations
+  items              OrderItem[]
+  invoice            Invoice?
+  tracking           OrderTracking[]
+  returnRequest      ReturnRequest?
+  
+  // Timestamps
+  confirmedAt        DateTime?
+  shippedAt          DateTime?
+  deliveredAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product  @relation(fields: [productId], references: [id])
+  productName    String
+  productSku     String
+  quantity       Int
+  unitPrice      Float
+  discount       Float    @default(0)
+  tax            Float    @default(0)
+  total          Float
+  customization  String?  @db.Text
+  
+  // JSON fields
+  specifications Json?
+  warranty       Json?
+  
+  createdAt      DateTime @default(now())
+  
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Cart {
+  id              String     @id @default(cuid())
+  userId          String     @unique
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subtotal        Float      @default(0)
+  estimatedTax    Float      @default(0)
+  estimatedShipping Float    @default(0)
+  estimatedTotal  Float      @default(0)
+  currency        String     @default("USD")
+  appliedCoupon   Json?
+  
+  items           CartItem[]
+  
+  expiresAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  
+  @@index([userId])
+}
+
+model CartItem {
+  id            String   @id @default(cuid())
+  cartId        String
+  cart          Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id])
+  productName   String
+  productImage  String?
+  quantity      Int
+  unitPrice     Float
+  discount      Float    @default(0)
+  total         Float
+  availability  String
+  savedForLater Boolean  @default(false)
+  customization Json?
+  
+  addedAt       DateTime @default(now())
+  
+  @@index([cartId])
+  @@index([productId])
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNumber String   @unique
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  issueDate     DateTime
+  dueDate       DateTime?
+  status        String
+  subtotal      Float
+  taxAmount     Float
+  total         Float
+  currency      String   @default("USD")
+  notes         String?  @db.Text
+  terms         String?  @db.Text
+  paidAmount    Float    @default(0)
+  balance       Float
+  
+  // JSON fields
+  items         Json
+  payments      Json
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([invoiceNumber])
+}
+
+model OrderTracking {
+  id          String   @id @default(cuid())
+  orderId     String
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status      String
+  description String
+  descriptionAr String?
+  location    String?
+  notes       String?  @db.Text
+  performedBy String?
+  
+  timestamp   DateTime @default(now())
+  
+  @@index([orderId])
+}
+
+model ReturnRequest {
+  id            String   @id @default(cuid())
+  orderId       String   @unique
+  order         Order    @relation(fields: [orderId], references: [id])
+  customerId    String
+  reason        String   @db.Text
+  status        String
+  refundAmount  Float
+  refundMethod  String?
+  notes         String?  @db.Text
+  processedBy   String?
+  
+  // JSON fields
+  items         Json
+  returnShipping Json?
+  images        Json?
+  
+  processedAt   DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@index([status])
+}
+
+// ==================== RENTAL MANAGEMENT ====================
+
+enum RentalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  OVERDUE
+  PENDING_RETURN
+  RETURNED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model RentalAgreement {
+  id              String       @id @default(cuid())
+  agreementNumber String       @unique
+  renterId        String
+  renter          User         @relation(fields: [renterId], references: [id])
+  supplierId      String
+  supplier        EquipmentSupplier @relation(fields: [supplierId], references: [id])
+  status          RentalStatus @default(DRAFT)
+  startDate       DateTime
+  endDate         DateTime
+  actualReturnDate DateTime?
+  periodType      String
+  duration        Int
+  paymentSchedule String
+  notes           String?      @db.Text
+  approvedBy      String?
+  
+  // JSON fields
+  pricing         Json
+  payments        Json
+  deliveryAddress Json
+  pickupAddress   Json?
+  terms           Json
+  insurance       Json?
+  securityDeposit Json
+  signatures      Json
+  documents       Json
+  
+  // Relations
+  items           RentalItem[]
+  extension       RentalExtension?
+  returnRecord    RentalReturn?
+  maintenanceRecords RentalMaintenance[]
+  
+  // Timestamps
+  approvedAt      DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  @@index([renterId])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model RentalItem {
+  id                String          @id @default(cuid())
+  rentalId          String
+  rental            RentalAgreement @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product         @relation(fields: [productId], references: [id])
+  productName       String
+  productSku        String
+  unitId            String?
+  serialNumber      String?
+  quantity          Int
+  condition         String
+  dailyRate         Float
+  weeklyRate        Float
+  monthlyRate       Float
+  appliedRate       Float
+  subtotal          Float
+  maintenanceIncluded Boolean       @default(false)
+  replacementValue  Float
+  
+  // JSON fields
+  accessories       Json?
+  
+  createdAt         DateTime        @default(now())
+  
+  @@index([rentalId])
+  @@index([productId])
+}
+
+model RentalExtension {
+  id              String          @id @default(cuid())
+  rentalId        String          @unique
+  rental          RentalAgreement @relation(fields: [rentalId], references: [id])
+  requestedBy     String
+  currentEndDate  DateTime
+  requestedEndDate DateTime
+  reason          String?         @db.Text
+  proposedRate    Float?
+  status          String
+  processedBy     String?
+  processedAt     DateTime?
+  notes           String?         @db.Text
+  
+  createdAt       DateTime        @default(now())
+}
+
+model RentalReturn {
+  id               String          @id @default(cuid())
+  rentalId         String          @unique
+  rental           RentalAgreement @relation(fields: [rentalId], references: [id])
+  scheduledDate    DateTime
+  actualDate       DateTime?
+  returnMethod     String
+  cleaningRequired Boolean         @default(false)
+  cleaningFee      Float?
+  totalCharges     Float           @default(0)
+  processedBy      String?
+  customerSignature String?
+  notes            String?         @db.Text
+  
+  // JSON fields
+  address          Json?
+  inspection       Json
+  condition        Json
+  damages          Json?
+  missingItems     Json?
+  additionalCharges Json?
+  photos           Json?
+  
+  completedAt      DateTime?
+  createdAt        DateTime        @default(now())
+}
+
+model RentalMaintenance {
+  id              String          @id @default(cuid())
+  rentalId        String
+  rental          RentalAgreement @relation(fields: [rentalId], references: [id])
+  unitId          String
+  type            String
+  scheduledDate   DateTime?
+  performedDate   DateTime?
+  performedBy     String?
+  description     String          @db.Text
+  laborHours      Float?
+  cost            Float?
+  coveredByAgreement Boolean      @default(true)
+  downtime        Float?
+  status          String
+  notes           String?         @db.Text
+  nextMaintenanceDate DateTime?
+  
+  // JSON fields
+  partsReplaced   Json?
+  
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+// ==================== MAINTENANCE SERVICE ====================
+
+enum MaintenanceRequestStatus {
+  DRAFT
+  PENDING
+  ASSIGNED
+  ACCEPTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+model MaintenanceRequest {
+  id               String                   @id @default(cuid())
+  requestNumber    String                   @unique
+  customerId       String
+  customer         User                     @relation(fields: [customerId], references: [id])
+  equipmentId      String?
+  type             String
+  priority         String
+  status           MaintenanceRequestStatus @default(PENDING)
+  issueDescription String                   @db.Text
+  requestedDate    DateTime
+  assignedEngineerId String?
+  assignedEngineerName String?
+  estimatedCost    Float?
+  actualCost       Float?
+  currency         String                   @default("USD")
+  notes            String?                  @db.Text
+  
+  // JSON fields
+  equipmentDetails Json
+  symptoms         Json?
+  errorCodes       Json?
+  preferredSchedule Json?
+  location         Json
+  attachments      Json?
+  history          Json?
+  
+  // Relations
+  assignment       ServiceAssignment?
+  workOrder        ServiceWorkOrder?
+  
+  // Timestamps
+  assignedAt       DateTime?
+  scheduledAt      DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  
+  @@index([customerId])
+  @@index([status])
+}
+
+model ServiceAssignment {
+  id              String              @id @default(cuid())
+  requestId       String              @unique
+  request         MaintenanceRequest  @relation(fields: [requestId], references: [id])
+  engineerId      String
+  engineer        MaintenanceEngineer @relation(fields: [engineerId], references: [id])
+  engineerName    String
+  assignedBy      String
+  status          String
+  responseDeadline DateTime
+  acceptedAt      DateTime?
+  declinedAt      DateTime?
+  declineReason   String?             @db.Text
+  estimatedArrival DateTime?
+  estimatedDuration Float?
+  notes           String?             @db.Text
+  
+  // JSON fields
+  quotation       Json?
+  
+  assignedAt      DateTime            @default(now())
+  
+  @@index([engineerId])
+  @@index([status])
+}
+
+model ServiceWorkOrder {
+  id              String              @id @default(cuid())
+  workOrderNumber String              @unique
+  requestId       String              @unique
+  request         MaintenanceRequest  @relation(fields: [requestId], references: [id])
+  engineerId      String
+  engineer        MaintenanceEngineer @relation(fields: [engineerId], references: [id])
+  status          String
+  scheduledStart  DateTime
+  scheduledEnd    DateTime
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  followUpRequired Boolean            @default(false)
+  followUpDate    DateTime?
+  
+  // JSON fields
+  checkInLocation Json?
+  workPerformed   Json
+  partsUsed       Json?
+  testResults     Json?
+  recommendations Json?
+  customerSignature Json?
+  engineerSignature Json?
+  completionReport Json?
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([engineerId])
+  @@index([status])
+}
+
+model ServiceContract {
+  id              String              @id @default(cuid())
+  contractNumber  String              @unique
+  customerId      String
+  supplierId      String?
+  engineerId      String?
+  engineer        MaintenanceEngineer? @relation(fields: [engineerId], references: [id])
+  serviceLevel    String
+  frequency       String
+  startDate       DateTime
+  endDate         DateTime
+  autoRenew       Boolean             @default(false)
+  status          String
+  signedAt        DateTime?
+  renewedAt       DateTime?
+  cancelledAt     DateTime?
+  
+  // JSON fields
+  equipmentCovered Json
+  pricing         Json
+  inclusions      Json
+  exclusions      Json
+  responseTime    Json
+  penalties       Json?
+  terms           Json
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  @@index([customerId])
+  @@index([engineerId])
+  @@index([status])
+}
+
+// ==================== CHAT & SUPPORT ====================
+
+model ChatSession {
+  id           String            @id @default(cuid())
+  type         String
+  title        String?
+  status       String            @default("active")
+  lastMessageAt DateTime?
+  
+  // JSON fields
+  context      Json?
+  metadata     Json?
+  
+  // Relations
+  participants ChatParticipant[]
+  messages     Message[]
+  
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  
+  @@index([type])
+  @@index([status])
+}
+
+model ChatParticipant {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  name       String
+  avatar     String?
+  role       String
+  lastSeenAt DateTime?
+  isTyping   Boolean     @default(false)
+  isOnline   Boolean     @default(false)
+  
+  joinedAt   DateTime    @default(now())
+  
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  sessionId  String
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  senderId   String
+  senderName String
+  senderRole String
+  type       String
+  status     String      @default("sent")
+  replyTo    String?
+  editedAt   DateTime?
+  deletedAt  DateTime?
+  
+  // JSON fields
+  content    Json
+  reactions  Json?
+  metadata   Json?
+  
+  timestamp  DateTime    @default(now())
+  
+  @@index([sessionId])
+  @@index([senderId])
+}
+
+model SupportTicket {
+  id             String   @id @default(cuid())
+  ticketNumber   String   @unique
+  customerId     String
+  customer       User     @relation(fields: [customerId], references: [id])
+  customerName   String
+  customerEmail  String
+  customerPhone  String?
+  category       String
+  subcategory    String?
+  priority       String
+  status         String   @default("new")
+  subject        String
+  description    String   @db.Text
+  assignedTo     String?
+  assignedTeam   String?
+  chatSessionId  String?
+  resolution     String?  @db.Text
+  satisfactionRating Int?
+  feedback       String?  @db.Text
+  
+  // JSON fields
+  attachments    Json?
+  relatedTickets Json?
+  tags           Json
+  sla            Json
+  timeline       Json
+  
+  // Timestamps
+  resolvedAt     DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([customerId])
+  @@index([status])
+  @@index([priority])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String
+  title      String
+  message    String    @db.Text
+  data       Json?
+  read       Boolean   @default(false)
+  actionUrl  String?
+  readAt     DateTime?
+  expiresAt  DateTime?
+  
+  createdAt  DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([type])
+  @@index([read])
+}
+
+// ==================== AI CONFIGURATION ====================
+
+model ChatbotConfig {
+  id          String   @id @default(cuid())
+  name        String
+  description String?  @db.Text
+  active      Boolean  @default(true)
+  
+  // JSON fields
+  model       Json
+  personality Json
+  capabilities Json
+  knowledgeBase Json
+  responseSettings Json
+  escalationRules Json
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model KnowledgeDocument {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  category  String
+  language  String   @default("en")
+  version   String
+  active    Boolean  @default(true)
+  
+  // JSON fields
+  tags      Json
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([category])
+  @@index([active])
+}
+
+model FAQ {
+  id         String   @id @default(cuid())
+  category   String
+  helpful    Int      @default(0)
+  notHelpful Int      @default(0)
+  views      Int      @default(0)
+  
+  // JSON fields
+  question   Json
+  answer     Json
+  keywords   Json
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([category])
+}
+
+// ==================== ENVIRONMENT CONFIGURATION ====================
+
+model EnvVariable {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
+  encrypted   Boolean  @default(false)
+  modifiedBy  String?
+  modifiedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+}
+
+model EnvSnapshot {
+  id          String   @id @default(cuid())
+  variables   Json     // Stores all variables at time of snapshot
+  description String
+  createdBy   String
+  isActive    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([isActive])
+}

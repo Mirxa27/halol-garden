@@ -1,35 +1,81 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "client/dist/**/*",
-      "use": "@vercel/static"
-    },
-    {
-      "src": "server/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server/index.ts"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/client/dist/$1"
-    }
-  ],
-  "outputDirectory": "client/dist",
+  "name": "medical-devices-marketplace",
   "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
+  "outputDirectory": ".next",
   "installCommand": "npm install",
+  "framework": "nextjs",
+  "regions": ["iad1"],
   "functions": {
-    "server/index.ts": {
-      "runtime": "nodejs18.x"
+    "pages/api/**/*.ts": {
+      "maxDuration": 30,
+      "memory": 1024
+    },
+    "pages/api/admin/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "pages/api/ai/**/*.ts": {
+      "maxDuration": 60,
+      "memory": 2048
     }
   },
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "X-Requested-With, Content-Type, Authorization"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/cleanup",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/maintenance-reminders",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/rental-expiry",
+      "schedule": "0 10 * * *"
+    }
+  ]
 }
