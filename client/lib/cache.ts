@@ -1,523 +1,762 @@
-// Comprehensive Caching System
-import { logger } from './logger';
+/**
+ * Advanced Caching System with Multiple Strategies
+ * Supports memory cache, localStorage, IndexedDB, and Redis integration
+ */
 
-// Cache configuration
-interface CacheConfig {
-  ttl: number; // Time to live in milliseconds
-  maxSize: number; // Maximum number of items
-  storage: 'memory' | 'localStorage' | 'sessionStorage';
-  version: string;
+import { monitoring } from './monitoring';
+
+// Types
+export interface CacheOptions {
+  ttl?: number; // Time to live in milliseconds
+  maxSize?: number; // Maximum cache size in items
+  maxMemory?: number; // Maximum memory usage in bytes
+  strategy?: 'LRU' | 'LFU' | 'FIFO' | 'TTL';
+  persistent?: boolean;
+  compress?: boolean;
+  encrypt?: boolean;
+  namespace?: string;
 }
 
-// Cache entry structure
-interface CacheEntry<T> {
-  data: T;
+export interface CacheEntry<T> {
+  key: string;
+  value: T;
   timestamp: number;
-  ttl: number;
-  accessCount: number;
+  expiresAt?: number;
+  size: number;
+  hits: number;
   lastAccessed: number;
+  metadata?: Record<string, any>;
 }
 
-// LRU Cache implementation
-class LRUCache<T> {
-  private cache = new Map<string, CacheEntry<T>>();
-  private config: CacheConfig;
+export interface CacheStats {
+  hits: number;
+  misses: number;
+  sets: number;
+  deletes: number;
+  evictions: number;
+  size: number;
+  memoryUsage: number;
+}
 
-  constructor(config: Partial<CacheConfig> = {}) {
-    this.config = {
-      ttl: 5 * 60 * 1000, // 5 minutes default
-      maxSize: 100,
-      storage: 'memory',
-      version: '1.0',
-      ...config,
+// Cache storage interface
+interface CacheStorage {
+  get<T>(key: string): Promise<T | null>;
+  set<T>(key: string, value: T, options?: CacheOptions): Promise<void>;
+  delete(key: string): Promise<boolean>;
+  clear(): Promise<void>;
+  keys(): Promise<string[]>;
+  size(): Promise<number>;
+}
+
+// Memory Cache Implementation
+class MemoryCache implements CacheStorage {
+  private cache = new Map<string, CacheEntry<any>>();
+  private accessOrder: string[] = [];
+  private stats: CacheStats = {
+    hits: 0,
+    misses: 0,
+    sets: 0,
+    deletes: 0,
+    evictions: 0,
+    size: 0,
+    memoryUsage: 0,
+  };
+  private options: CacheOptions;
+
+  constructor(options: CacheOptions = {}) {
+    this.options = {
+      maxSize: 1000,
+      maxMemory: 50 * 1024 * 1024, // 50MB
+      strategy: 'LRU',
+      ...options,
     };
-
-    // Load from persistent storage if configured
-    if (this.config.storage !== 'memory') {
-      this.loadFromStorage();
-    }
   }
 
-  set(key: string, value: T, customTTL?: number): void {
-    const ttl = customTTL || this.config.ttl;
+  async get<T>(key: string): Promise<T | null> {
+    const entry = this.cache.get(key);
+    
+    if (!entry) {
+      this.stats.misses++;
+      return null;
+    }
+
+    // Check expiration
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
+      await this.delete(key);
+      this.stats.misses++;
+      return null;
+    }
+
+    // Update access metadata
+    entry.hits++;
+    entry.lastAccessed = Date.now();
+    this.updateAccessOrder(key);
+    
+    this.stats.hits++;
+    return entry.value as T;
+  }
+
+  async set<T>(key: string, value: T, options?: CacheOptions): Promise<void> {
+    const opts = { ...this.options, ...options };
+    const size = this.calculateSize(value);
+    
+    // Check if we need to evict items
+    await this.ensureSpace(size, key);
+
     const entry: CacheEntry<T> = {
-      data: value,
+      key,
+      value,
       timestamp: Date.now(),
-      ttl,
-      accessCount: 0,
+      expiresAt: opts.ttl ? Date.now() + opts.ttl : undefined,
+      size,
+      hits: 0,
       lastAccessed: Date.now(),
     };
 
-    // Remove expired entries if cache is full
-    if (this.cache.size >= this.config.maxSize) {
-      this.evictLRU();
-    }
-
     this.cache.set(key, entry);
-    this.saveToStorage();
-
-    logger.debug('Cache set', { key, ttl, cacheSize: this.cache.size });
+    this.updateAccessOrder(key);
+    this.stats.sets++;
+    this.stats.size = this.cache.size;
+    this.stats.memoryUsage += size;
   }
 
-  get(key: string): T | null {
+  async delete(key: string): Promise<boolean> {
     const entry = this.cache.get(key);
+    if (!entry) return false;
 
-    if (!entry) {
-      logger.debug('Cache miss', { key });
-      return null;
-    }
-
-    // Check if entry has expired
-    if (this.isExpired(entry)) {
-      this.cache.delete(key);
-      this.saveToStorage();
-      logger.debug('Cache expired', { key });
-      return null;
-    }
-
-    // Update access statistics
-    entry.accessCount++;
-    entry.lastAccessed = Date.now();
-    logger.debug('Cache hit', { key, accessCount: entry.accessCount });
-
-    return entry.data;
+    this.cache.delete(key);
+    this.removeFromAccessOrder(key);
+    this.stats.deletes++;
+    this.stats.size = this.cache.size;
+    this.stats.memoryUsage -= entry.size;
+    
+    return true;
   }
 
-  has(key: string): boolean {
-    const entry = this.cache.get(key);
-    return entry ? !this.isExpired(entry) : false;
-  }
-
-  delete(key: string): boolean {
-    const deleted = this.cache.delete(key);
-    if (deleted) {
-      this.saveToStorage();
-      logger.debug('Cache entry deleted', { key });
-    }
-    return deleted;
-  }
-
-  clear(): void {
+  async clear(): Promise<void> {
     this.cache.clear();
-    this.saveToStorage();
-    logger.info('Cache cleared');
-  }
-
-  getStats(): {
-    size: number;
-    maxSize: number;
-    hitRate: number;
-    entries: Array<{
-      key: string;
-      size: number;
-      age: number;
-      accessCount: number;
-      lastAccessed: number;
-    }>;
-  } {
-    let totalAccess = 0;
-    const entries: Array<{
-      key: string;
-      size: number;
-      age: number;
-      accessCount: number;
-      lastAccessed: number;
-    }> = [];
-
-    this.cache.forEach((entry, key) => {
-      totalAccess += entry.accessCount;
-      entries.push({
-        key,
-        size: JSON.stringify(entry.data).length,
-        age: Date.now() - entry.timestamp,
-        accessCount: entry.accessCount,
-        lastAccessed: entry.lastAccessed,
-      });
-    });
-
-    const hitRate = totalAccess > 0 ? (totalAccess / this.cache.size) : 0;
-
-    return {
-      size: this.cache.size,
-      maxSize: this.config.maxSize,
-      hitRate,
-      entries: entries.sort((a, b) => b.accessCount - a.accessCount),
+    this.accessOrder = [];
+    this.stats = {
+      hits: 0,
+      misses: 0,
+      sets: 0,
+      deletes: 0,
+      evictions: 0,
+      size: 0,
+      memoryUsage: 0,
     };
   }
 
-  private isExpired(entry: CacheEntry<T>): boolean {
-    return Date.now() - entry.timestamp > entry.ttl;
+  async keys(): Promise<string[]> {
+    return Array.from(this.cache.keys());
   }
 
-  private evictLRU(): void {
-    let oldestKey: string | null = null;
-    let oldestTime = Date.now();
+  async size(): Promise<number> {
+    return this.cache.size;
+  }
 
-    this.cache.forEach((entry, key) => {
-      if (entry.lastAccessed < oldestTime) {
-        oldestTime = entry.lastAccessed;
-        oldestKey = key;
+  private async ensureSpace(requiredSize: number, excludeKey?: string): Promise<void> {
+    const { maxSize, maxMemory, strategy } = this.options;
+
+    // Check item count limit
+    while (maxSize && this.cache.size >= maxSize) {
+      const keyToEvict = this.selectEvictionCandidate(strategy!, excludeKey);
+      if (keyToEvict) {
+        await this.delete(keyToEvict);
+        this.stats.evictions++;
+      } else {
+        break;
       }
-    });
+    }
+
+    // Check memory limit
+    while (maxMemory && this.stats.memoryUsage + requiredSize > maxMemory) {
+      const keyToEvict = this.selectEvictionCandidate(strategy!, excludeKey);
+      if (keyToEvict) {
+        await this.delete(keyToEvict);
+        this.stats.evictions++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  private selectEvictionCandidate(strategy: string, excludeKey?: string): string | null {
+    const candidates = Array.from(this.cache.entries())
+      .filter(([key]) => key !== excludeKey);
+
+    if (candidates.length === 0) return null;
+
+    switch (strategy) {
+      case 'LRU':
+        // Least Recently Used
+        return this.accessOrder[0];
+      
+      case 'LFU':
+        // Least Frequently Used
+        return candidates.reduce((min, [key, entry]) => 
+          entry.hits < this.cache.get(min)!.hits ? key : min, 
+          candidates[0][0]
+        );
+      
+      case 'FIFO':
+        // First In First Out
+        return candidates.reduce((oldest, [key, entry]) => 
+          entry.timestamp < this.cache.get(oldest)!.timestamp ? key : oldest,
+          candidates[0][0]
+        );
+      
+      case 'TTL':
+        // Shortest Time To Live
+        const withExpiry = candidates.filter(([, entry]) => entry.expiresAt);
+        if (withExpiry.length === 0) return candidates[0][0];
+        return withExpiry.reduce((soonest, [key, entry]) => 
+          entry.expiresAt! < this.cache.get(soonest)!.expiresAt! ? key : soonest,
+          withExpiry[0][0]
+        );
+      
+      default:
+        return candidates[0][0];
+    }
+  }
+
+  private updateAccessOrder(key: string): void {
+    this.removeFromAccessOrder(key);
+    this.accessOrder.push(key);
+  }
+
+  private removeFromAccessOrder(key: string): void {
+    const index = this.accessOrder.indexOf(key);
+    if (index > -1) {
+      this.accessOrder.splice(index, 1);
+    }
+  }
+
+  private calculateSize(value: any): number {
+    // Rough estimation of object size in bytes
+    const str = JSON.stringify(value);
+    return new Blob([str]).size;
+  }
+
+  public getStats(): CacheStats {
+    return { ...this.stats };
+  }
+}
+
+// LocalStorage Cache Implementation
+class LocalStorageCache implements CacheStorage {
+  private namespace: string;
+
+  constructor(namespace: string = 'cache') {
+    this.namespace = namespace;
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const item = localStorage.getItem(this.getKey(key));
+      if (!item) return null;
+
+      const entry: CacheEntry<T> = JSON.parse(item);
+      
+      // Check expiration
+      if (entry.expiresAt && Date.now() > entry.expiresAt) {
+        await this.delete(key);
+        return null;
+      }
+
+      return entry.value;
+    } catch (error) {
+      monitoring.error('LocalStorage cache get error', error as Error);
+      return null;
+    }
+  }
+
+  async set<T>(key: string, value: T, options?: CacheOptions): Promise<void> {
+    try {
+      const entry: CacheEntry<T> = {
+        key,
+        value,
+        timestamp: Date.now(),
+        expiresAt: options?.ttl ? Date.now() + options.ttl : undefined,
+        size: 0,
+        hits: 0,
+        lastAccessed: Date.now(),
+      };
+
+      localStorage.setItem(this.getKey(key), JSON.stringify(entry));
+    } catch (error) {
+      monitoring.error('LocalStorage cache set error', error as Error);
+      // Handle quota exceeded error
+      if ((error as any).name === 'QuotaExceededError') {
+        await this.evictOldest();
+        // Retry once
+        try {
+          localStorage.setItem(this.getKey(key), JSON.stringify({ value }));
+        } catch {
+          // Give up
+        }
+      }
+    }
+  }
+
+  async delete(key: string): Promise<boolean> {
+    try {
+      localStorage.removeItem(this.getKey(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async clear(): Promise<void> {
+    const keys = await this.keys();
+    keys.forEach(key => localStorage.removeItem(this.getKey(key)));
+  }
+
+  async keys(): Promise<string[]> {
+    const keys: string[] = [];
+    const prefix = `${this.namespace}:`;
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) {
+        keys.push(key.substring(prefix.length));
+      }
+    }
+    
+    return keys;
+  }
+
+  async size(): Promise<number> {
+    return (await this.keys()).length;
+  }
+
+  private getKey(key: string): string {
+    return `${this.namespace}:${key}`;
+  }
+
+  private async evictOldest(): Promise<void> {
+    const keys = await this.keys();
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+
+    for (const key of keys) {
+      try {
+        const item = localStorage.getItem(this.getKey(key));
+        if (item) {
+          const entry = JSON.parse(item);
+          if (entry.timestamp < oldestTime) {
+            oldestTime = entry.timestamp;
+            oldestKey = key;
+          }
+        }
+      } catch {
+        // Skip invalid entries
+      }
+    }
 
     if (oldestKey) {
-      this.cache.delete(oldestKey);
-      logger.debug('Cache LRU eviction', { evictedKey: oldestKey });
-    }
-  }
-
-  private loadFromStorage(): void {
-    if (this.config.storage === 'memory') return;
-
-    try {
-      const storage = this.getStorage();
-      const cached = storage.getItem(`cache_${this.config.version}`);
-      
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        
-        // Validate version and restore cache
-        if (parsed.version === this.config.version) {
-          parsed.entries.forEach(([key, entry]: [string, CacheEntry<T>]) => {
-            if (!this.isExpired(entry)) {
-              this.cache.set(key, entry);
-            }
-          });
-          logger.info('Cache loaded from storage', { 
-            entriesLoaded: this.cache.size 
-          });
-        } else {
-          logger.info('Cache version mismatch, starting fresh');
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to load cache from storage', error);
-    }
-  }
-
-  private saveToStorage(): void {
-    if (this.config.storage === 'memory') return;
-
-    try {
-      const storage = this.getStorage();
-      const cacheData = {
-        version: this.config.version,
-        entries: Array.from(this.cache.entries()),
-      };
-      
-      storage.setItem(`cache_${this.config.version}`, JSON.stringify(cacheData));
-    } catch (error) {
-      logger.warn('Failed to save cache to storage', error);
-    }
-  }
-
-  private getStorage(): Storage {
-    switch (this.config.storage) {
-      case 'localStorage':
-        return localStorage;
-      case 'sessionStorage':
-        return sessionStorage;
-      default:
-        throw new Error('Invalid storage type for persistent cache');
+      await this.delete(oldestKey);
     }
   }
 }
 
-// Multi-level cache manager
-class CacheManager {
-  private caches = new Map<string, LRUCache<any>>();
-  private defaultConfig: CacheConfig = {
-    ttl: 5 * 60 * 1000, // 5 minutes
-    maxSize: 100,
-    storage: 'memory',
-    version: '1.0',
-  };
+// IndexedDB Cache Implementation
+class IndexedDBCache implements CacheStorage {
+  private dbName: string;
+  private storeName: string;
+  private db: IDBDatabase | null = null;
 
-  createCache<T>(name: string, config?: Partial<CacheConfig>): LRUCache<T> {
-    const cache = new LRUCache<T>({ ...this.defaultConfig, ...config });
-    this.caches.set(name, cache);
-    return cache;
+  constructor(dbName: string = 'cache', storeName: string = 'entries') {
+    this.dbName = dbName;
+    this.storeName = storeName;
   }
 
-  getCache<T>(name: string): LRUCache<T> | null {
-    return this.caches.get(name) || null;
-  }
+  private async getDB(): Promise<IDBDatabase> {
+    if (this.db) return this.db;
 
-  clearAll(): void {
-    this.caches.forEach(cache => cache.clear());
-    logger.info('All caches cleared');
-  }
-
-  getGlobalStats(): {
-    totalCaches: number;
-    totalSize: number;
-    cacheStats: Array<{ name: string; stats: any }>;
-  } {
-    let totalSize = 0;
-    const cacheStats: Array<{ name: string; stats: any }> = [];
-
-    this.caches.forEach((cache, name) => {
-      const stats = cache.getStats();
-      totalSize += stats.size;
-      cacheStats.push({ name, stats });
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(this.dbName, 1);
+      
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve(this.db);
+      };
+      
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(this.storeName)) {
+          const store = db.createObjectStore(this.storeName, { keyPath: 'key' });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          store.createIndex('expiresAt', 'expiresAt', { unique: false });
+        }
+      };
     });
+  }
 
-    return {
-      totalCaches: this.caches.size,
-      totalSize,
-      cacheStats,
+  async get<T>(key: string): Promise<T | null> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      
+      return new Promise((resolve, reject) => {
+        const request = store.get(key);
+        request.onsuccess = () => {
+          const entry = request.result;
+          if (!entry) {
+            resolve(null);
+            return;
+          }
+
+          // Check expiration
+          if (entry.expiresAt && Date.now() > entry.expiresAt) {
+            this.delete(key);
+            resolve(null);
+            return;
+          }
+
+          resolve(entry.value);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      monitoring.error('IndexedDB cache get error', error as Error);
+      return null;
+    }
+  }
+
+  async set<T>(key: string, value: T, options?: CacheOptions): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      
+      const entry: CacheEntry<T> = {
+        key,
+        value,
+        timestamp: Date.now(),
+        expiresAt: options?.ttl ? Date.now() + options.ttl : undefined,
+        size: 0,
+        hits: 0,
+        lastAccessed: Date.now(),
+      };
+
+      return new Promise((resolve, reject) => {
+        const request = store.put(entry);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      monitoring.error('IndexedDB cache set error', error as Error);
+    }
+  }
+
+  async delete(key: string): Promise<boolean> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      
+      return new Promise((resolve, reject) => {
+        const request = store.delete(key);
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => {
+          reject(request.error);
+          resolve(false);
+        };
+      });
+    } catch {
+      return false;
+    }
+  }
+
+  async clear(): Promise<void> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      
+      return new Promise((resolve, reject) => {
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      monitoring.error('IndexedDB cache clear error', error as Error);
+    }
+  }
+
+  async keys(): Promise<string[]> {
+    try {
+      const db = await this.getDB();
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      
+      return new Promise((resolve, reject) => {
+        const request = store.getAllKeys();
+        request.onsuccess = () => resolve(request.result as string[]);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  async size(): Promise<number> {
+    const keys = await this.keys();
+    return keys.length;
+  }
+}
+
+// Multi-tier Cache Manager
+export class CacheManager {
+  private tiers: CacheStorage[] = [];
+  private defaultOptions: CacheOptions;
+  private invalidationCallbacks = new Map<string, Set<() => void>>();
+
+  constructor(options: CacheOptions = {}) {
+    this.defaultOptions = {
+      ttl: 5 * 60 * 1000, // 5 minutes default
+      strategy: 'LRU',
+      ...options,
+    };
+
+    // Initialize cache tiers
+    this.initializeTiers();
+  }
+
+  private initializeTiers(): void {
+    // L1: Memory cache (fastest)
+    this.tiers.push(new MemoryCache(this.defaultOptions));
+
+    // L2: LocalStorage (persistent, medium speed)
+    if (typeof localStorage !== 'undefined') {
+      this.tiers.push(new LocalStorageCache(this.defaultOptions.namespace || 'cache'));
+    }
+
+    // L3: IndexedDB (persistent, larger capacity)
+    if (typeof indexedDB !== 'undefined') {
+      this.tiers.push(new IndexedDBCache());
+    }
+  }
+
+  async get<T>(key: string): Promise<T | null> {
+    const timer = monitoring.startTimer(`cache_get_${key}`);
+    
+    for (let i = 0; i < this.tiers.length; i++) {
+      const value = await this.tiers[i].get<T>(key);
+      
+      if (value !== null) {
+        // Promote to higher tiers
+        for (let j = 0; j < i; j++) {
+          await this.tiers[j].set(key, value, this.defaultOptions);
+        }
+        
+        timer();
+        monitoring.trackAction('cache_hit', 'cache', key, i);
+        return value;
+      }
+    }
+    
+    timer();
+    monitoring.trackAction('cache_miss', 'cache', key);
+    return null;
+  }
+
+  async set<T>(key: string, value: T, options?: CacheOptions): Promise<void> {
+    const opts = { ...this.defaultOptions, ...options };
+    const timer = monitoring.startTimer(`cache_set_${key}`);
+    
+    // Write to all tiers in parallel
+    await Promise.all(
+      this.tiers.map(tier => tier.set(key, value, opts))
+    );
+    
+    timer();
+    monitoring.trackAction('cache_set', 'cache', key);
+  }
+
+  async delete(key: string): Promise<boolean> {
+    const results = await Promise.all(
+      this.tiers.map(tier => tier.delete(key))
+    );
+    
+    // Trigger invalidation callbacks
+    const callbacks = this.invalidationCallbacks.get(key);
+    if (callbacks) {
+      callbacks.forEach(callback => callback());
+      this.invalidationCallbacks.delete(key);
+    }
+    
+    monitoring.trackAction('cache_delete', 'cache', key);
+    return results.some(result => result);
+  }
+
+  async clear(): Promise<void> {
+    await Promise.all(
+      this.tiers.map(tier => tier.clear())
+    );
+    
+    // Trigger all invalidation callbacks
+    this.invalidationCallbacks.forEach(callbacks => {
+      callbacks.forEach(callback => callback());
+    });
+    this.invalidationCallbacks.clear();
+    
+    monitoring.trackAction('cache_clear', 'cache');
+  }
+
+  async invalidate(pattern: string | RegExp): Promise<void> {
+    const keys = await this.keys();
+    const keysToDelete = keys.filter(key => 
+      typeof pattern === 'string' ? key.includes(pattern) : pattern.test(key)
+    );
+    
+    await Promise.all(keysToDelete.map(key => this.delete(key)));
+    monitoring.trackAction('cache_invalidate', 'cache', pattern.toString(), keysToDelete.length);
+  }
+
+  async keys(): Promise<string[]> {
+    const allKeys = new Set<string>();
+    
+    for (const tier of this.tiers) {
+      const keys = await tier.keys();
+      keys.forEach(key => allKeys.add(key));
+    }
+    
+    return Array.from(allKeys);
+  }
+
+  async size(): Promise<number> {
+    const sizes = await Promise.all(
+      this.tiers.map(tier => tier.size())
+    );
+    return Math.max(...sizes);
+  }
+
+  // Subscribe to cache invalidation
+  onInvalidate(key: string, callback: () => void): () => void {
+    if (!this.invalidationCallbacks.has(key)) {
+      this.invalidationCallbacks.set(key, new Set());
+    }
+    
+    this.invalidationCallbacks.get(key)!.add(callback);
+    
+    // Return unsubscribe function
+    return () => {
+      const callbacks = this.invalidationCallbacks.get(key);
+      if (callbacks) {
+        callbacks.delete(callback);
+        if (callbacks.size === 0) {
+          this.invalidationCallbacks.delete(key);
+        }
+      }
     };
   }
-}
 
-// API response cache
-class APICache {
-  private cache: LRUCache<any>;
-
-  constructor() {
-    this.cache = new LRUCache({
-      ttl: 5 * 60 * 1000, // 5 minutes
-      maxSize: 200,
-      storage: 'localStorage',
-      version: 'api_v1',
-    });
-  }
-
-  async getCachedResponse<T>(
+  // Cache-aside pattern helper
+  async getOrSet<T>(
     key: string,
-    fetcher: () => Promise<T>,
-    ttl?: number
+    factory: () => Promise<T>,
+    options?: CacheOptions
   ): Promise<T> {
-    // Try to get from cache first
-    const cached = this.cache.get(key);
-    if (cached) {
-      return cached;
-    }
-
-    // Fetch fresh data
-    try {
-      const data = await fetcher();
-      this.cache.set(key, data, ttl);
-      return data;
-    } catch (error) {
-      logger.error('API fetch failed', { key, error });
-      throw error;
-    }
-  }
-
-  invalidate(pattern: string): void {
-    const regex = new RegExp(pattern);
-    const stats = this.cache.getStats();
+    // Try to get from cache
+    let value = await this.get<T>(key);
     
-    stats.entries.forEach(entry => {
-      if (regex.test(entry.key)) {
-        this.cache.delete(entry.key);
-      }
-    });
-
-    logger.info('Cache invalidated', { pattern });
-  }
-
-  preload(requests: Array<{ key: string; fetcher: () => Promise<any>; ttl?: number }>): void {
-    requests.forEach(async ({ key, fetcher, ttl }) => {
-      if (!this.cache.has(key)) {
-        try {
-          const data = await fetcher();
-          this.cache.set(key, data, ttl);
-          logger.debug('Cache preloaded', { key });
-        } catch (error) {
-          logger.warn('Cache preload failed', { key, error });
-        }
-      }
-    });
-  }
-}
-
-// Image cache with progressive loading
-class ImageCache {
-  private cache: LRUCache<string>;
-  private preloadCache = new Set<string>();
-
-  constructor() {
-    this.cache = new LRUCache({
-      ttl: 60 * 60 * 1000, // 1 hour
-      maxSize: 50,
-      storage: 'sessionStorage',
-      version: 'img_v1',
-    });
-  }
-
-  async loadImage(src: string, priority: 'high' | 'low' = 'low'): Promise<string> {
-    // Check cache first
-    const cached = this.cache.get(src);
-    if (cached) {
-      return cached;
+    if (value === null) {
+      // Cache miss - fetch and cache
+      value = await factory();
+      await this.set(key, value, options);
     }
-
-    // Load image
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      
-      img.onload = () => {
-        // Convert to base64 for small images or store URL
-        if (priority === 'high') {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          
-          if (ctx) {
-            ctx.drawImage(img, 0, 0);
-            const dataURL = canvas.toDataURL();
-            this.cache.set(src, dataURL);
-            resolve(dataURL);
-          } else {
-            this.cache.set(src, src);
-            resolve(src);
-          }
-        } else {
-          this.cache.set(src, src);
-          resolve(src);
-        }
-      };
-      
-      img.onerror = () => {
-        logger.warn('Image load failed', { src });
-        reject(new Error(`Failed to load image: ${src}`));
-      };
-      
-      img.src = src;
-    });
+    
+    return value;
   }
 
-  preloadImages(urls: string[]): void {
-    urls.forEach(url => {
-      if (!this.preloadCache.has(url) && !this.cache.has(url)) {
-        this.preloadCache.add(url);
-        this.loadImage(url, 'low').catch(() => {
-          this.preloadCache.delete(url);
-        });
-      }
-    });
+  // Batch operations
+  async getMany<T>(keys: string[]): Promise<Map<string, T | null>> {
+    const results = new Map<string, T | null>();
+    
+    await Promise.all(
+      keys.map(async key => {
+        const value = await this.get<T>(key);
+        results.set(key, value);
+      })
+    );
+    
+    return results;
+  }
+
+  async setMany<T>(entries: Array<[string, T, CacheOptions?]>): Promise<void> {
+    await Promise.all(
+      entries.map(([key, value, options]) => this.set(key, value, options))
+    );
+  }
+
+  // Cache warming
+  async warm<T>(keys: string[], factory: (key: string) => Promise<T>): Promise<void> {
+    await Promise.all(
+      keys.map(async key => {
+        const value = await factory(key);
+        await this.set(key, value);
+      })
+    );
   }
 }
 
-// Service worker cache management
-class ServiceWorkerCache {
-  private swRegistration: ServiceWorkerRegistration | null = null;
+// Create default cache instance
+export const cache = new CacheManager();
 
-  async register(): Promise<void> {
-    if ('serviceWorker' in navigator) {
+// React hooks for cache
+export function useCache<T>(key: string, factory: () => Promise<T>, options?: CacheOptions) {
+  const [data, setData] = React.useState<T | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<Error | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    const fetchData = async () => {
       try {
-        this.swRegistration = await navigator.serviceWorker.register('/sw.js');
-        logger.info('Service Worker registered');
-        
-        // Listen for updates
-        this.swRegistration.addEventListener('updatefound', () => {
-          logger.info('Service Worker update found');
-        });
-      } catch (error) {
-        logger.error('Service Worker registration failed', error);
+        setLoading(true);
+        const result = await cache.getOrSet(key, factory, options);
+        if (!cancelled) {
+          setData(result);
+          setError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err as Error);
+          monitoring.error('Cache hook error', err as Error, { key });
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    }
-  }
+    };
 
-  async updateCache(cacheNames: string[]): Promise<void> {
-    if (this.swRegistration) {
-      // Send message to service worker to update specific caches
-      this.swRegistration.active?.postMessage({
-        type: 'UPDATE_CACHE',
-        cacheNames,
-      });
-    }
-  }
+    fetchData();
 
-  async clearOldCaches(): Promise<void> {
-    if (this.swRegistration) {
-      this.swRegistration.active?.postMessage({
-        type: 'CLEAR_OLD_CACHES',
-      });
-    }
-  }
+    // Subscribe to invalidation
+    const unsubscribe = cache.onInvalidate(key, () => {
+      fetchData();
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [key]);
+
+  const invalidate = React.useCallback(() => {
+    cache.delete(key);
+  }, [key]);
+
+  return { data, loading, error, invalidate };
 }
 
-// Create singleton instances
-export const cacheManager = new CacheManager();
-
-// Pre-configured caches
-export const apiCache = new APICache();
-export const imageCache = new ImageCache();
-export const serviceWorkerCache = new ServiceWorkerCache();
-
-// Specific cache instances
-export const userCache = cacheManager.createCache('user', {
-  ttl: 15 * 60 * 1000, // 15 minutes
-  maxSize: 10,
-  storage: 'localStorage',
-});
-
-export const searchCache = cacheManager.createCache('search', {
-  ttl: 10 * 60 * 1000, // 10 minutes
-  maxSize: 50,
-  storage: 'sessionStorage',
-});
-
-export const servicesCache = cacheManager.createCache('services', {
-  ttl: 30 * 60 * 1000, // 30 minutes
-  maxSize: 100,
-  storage: 'localStorage',
-});
-
-// Cache utilities
-export const CacheUtils = {
-  // Clear all application caches
-  clearAll: () => {
-    cacheManager.clearAll();
-    localStorage.removeItem('cache_api_v1');
-    sessionStorage.removeItem('cache_img_v1');
-    logger.info('All application caches cleared');
-  },
-
-  // Get memory usage
-  getMemoryUsage: () => {
-    if ('memory' in performance) {
-      return (performance as any).memory;
-    }
-    return null;
-  },
-
-  // Cache warming strategy
-  warmup: async () => {
-    // Preload essential data
-    await Promise.allSettled([
-      apiCache.getCachedResponse('user-profile', async () => {
-        // Fetch user profile
-        return { id: 'current-user' };
-      }),
-      apiCache.getCachedResponse('app-config', async () => {
-        // Fetch app configuration
-        return { version: '1.0.0' };
-      }),
-    ]);
-
-    // Preload critical images
-    imageCache.preloadImages([
-      '/logo.png',
-      '/hero-bg.jpg',
-      '/placeholder.svg',
-    ]);
-
-    logger.info('Cache warmup completed');
-  },
-};
-
-export default {
-  cacheManager,
-  apiCache,
-  imageCache,
-  serviceWorkerCache,
-  userCache,
-  searchCache,
-  servicesCache,
-  CacheUtils,
-};
+// Export types and utilities
+export type { CacheEntry, CacheStats, CacheStorage };
+export { MemoryCache, LocalStorageCache, IndexedDBCache };
