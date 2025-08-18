@@ -89,11 +89,15 @@ cp .env.example .env
 
 ### 4. Set up the database
 ```bash
-# Run database migrations
-npx prisma migrate dev
+# 1️⃣ Run database migrations (creates tables defined in prisma/schema.prisma)
+npx prisma migrate dev --name init
 
-# Seed initial data (optional)
+# 2️⃣ Generate the Prisma client
+npx prisma generate
+
+# 3️⃣ Seed initial data (users, demo product, category)
 npm run db:seed
+# ↳ This executes `prisma/seed.ts` and inserts a minimal dataset for quick testing.
 ```
 
 ### 5. Start development server

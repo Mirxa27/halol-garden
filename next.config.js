@@ -35,14 +35,14 @@ const nextConfig = {
     // Add custom webpack configurations here
     config.resolve.alias = {
       ...config.resolve.alias,
-      '@': './src',
-      '@components': './src/components',
-      '@pages': './src/pages',
-      '@lib': './src/lib',
-      '@hooks': './src/hooks',
-      '@types': './src/types',
-      '@styles': './src/styles',
-      '@public': './public',
+      '@': path.resolve(__dirname),
+      '@components': path.resolve(__dirname, 'components'),
+      '@pages': path.resolve(__dirname, 'pages'),
+      '@lib': path.resolve(__dirname, 'lib'),
+      '@hooks': path.resolve(__dirname, 'hooks'),
+      '@types': path.resolve(__dirname, 'types'),
+      '@styles': path.resolve(__dirname, 'styles'),
+      '@public': path.resolve(__dirname, 'public'),
     };
     
     // Add support for importing SVGs as React components

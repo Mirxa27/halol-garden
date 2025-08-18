@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserType, UserStatus, VerificationStatus } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -44,9 +44,9 @@ async function main() {
       firstName: 'System',
       lastName: 'Administrator',
       phoneNumber: '+971501234567',
-      userType: 'ADMIN',
-      status: 'ACTIVE',
-      verificationStatus: 'FULLY_VERIFIED',
+      userType: UserType.ADMIN,
+      status: UserStatus.ACTIVE,
+      verificationStatus: VerificationStatus.FULLY_VERIFIED,
       preferredLanguage: 'en',
       emailVerifiedAt: new Date(),
       adminProfile: {
@@ -105,9 +105,9 @@ async function main() {
         firstName: provider.firstName,
         lastName: provider.lastName,
         phoneNumber: provider.phoneNumber,
-        userType: 'HEALTHCARE_PROVIDER',
-        status: 'ACTIVE',
-        verificationStatus: 'FULLY_VERIFIED',
+        userType: UserType.HEALTHCARE_PROVIDER,
+        status: UserStatus.ACTIVE,
+        verificationStatus: VerificationStatus.FULLY_VERIFIED,
         preferredLanguage: 'en',
         emailVerifiedAt: new Date(),
         healthcareProfile: {
@@ -182,9 +182,9 @@ async function main() {
         firstName: supplier.firstName,
         lastName: supplier.lastName,
         phoneNumber: supplier.phoneNumber,
-        userType: 'EQUIPMENT_SUPPLIER',
-        status: 'ACTIVE',
-        verificationStatus: 'FULLY_VERIFIED',
+        userType: UserType.EQUIPMENT_SUPPLIER,
+        status: UserStatus.ACTIVE,
+        verificationStatus: VerificationStatus.FULLY_VERIFIED,
         preferredLanguage: 'en',
         emailVerifiedAt: new Date(),
         supplierProfile: {
@@ -271,9 +271,9 @@ async function main() {
         firstName: engineer.firstName,
         lastName: engineer.lastName,
         phoneNumber: engineer.phoneNumber,
-        userType: 'MAINTENANCE_ENGINEER',
-        status: 'ACTIVE',
-        verificationStatus: 'FULLY_VERIFIED',
+        userType: UserType.MAINTENANCE_ENGINEER,
+        status: UserStatus.ACTIVE,
+        verificationStatus: VerificationStatus.FULLY_VERIFIED,
         preferredLanguage: 'en',
         emailVerifiedAt: new Date(),
         engineerProfile: {
@@ -352,9 +352,9 @@ async function main() {
         firstName: customer.firstName,
         lastName: customer.lastName,
         phoneNumber: customer.phoneNumber,
-        userType: 'INDIVIDUAL_CUSTOMER',
-        status: 'ACTIVE',
-        verificationStatus: 'FULLY_VERIFIED',
+        userType: UserType.INDIVIDUAL_CUSTOMER,
+        status: UserStatus.ACTIVE,
+        verificationStatus: VerificationStatus.FULLY_VERIFIED,
         preferredLanguage: 'en',
         emailVerifiedAt: new Date(),
         individualProfile: {

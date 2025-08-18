@@ -163,29 +163,8 @@
     }
   ],
   "functions": {
-    "pages/api/auth/[...nextauth].ts": {
-      "maxDuration": 10
-    },
-    "pages/api/products/search.ts": {
-      "maxDuration": 30
-    },
-    "pages/api/orders/create.ts": {
-      "maxDuration": 30
-    },
-    "pages/api/payments/process.ts": {
-      "maxDuration": 30
-    },
-    "pages/api/chat/send.ts": {
-      "maxDuration": 10
-    },
-    "pages/api/notifications/send.ts": {
-      "maxDuration": 10
-    },
-    "pages/api/metrics/[...params].ts": {
-      "maxDuration": 10
-    },
-    "pages/api/backup/trigger.ts": {
-      "maxDuration": 60
+    "app/api/health.ts": {
+      "maxDuration": 5
     }
   },
   "crons": [
