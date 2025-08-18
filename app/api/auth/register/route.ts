@@ -8,9 +8,15 @@ const registerSchema = z.object({
   password: z.string().min(8),
   firstName: z.string().min(2),
   lastName: z.string().min(2),
-  userType: z.enum(['HEALTHCARE_PROVIDER', 'EQUIPMENT_SUPPLIER']),
-  company: z.string().optional(),
+  userType: z.enum([
+    'HEALTHCARE_PROVIDER', 
+    'EQUIPMENT_SUPPLIER', 
+    'MAINTENANCE_ENGINEER',
+    'INDIVIDUAL_CUSTOMER'
+  ]),
+  organizationName: z.string().optional(),
   phone: z.string().optional(),
+  licenseNumber: z.string().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -25,7 +31,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, password, firstName, lastName, userType, company, phone } = validation.data;
+    const { 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      userType, 
+      organizationName, 
+      phone,
+      licenseNumber 
+    } = validation.data;
 
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
@@ -42,29 +57,64 @@ export async function POST(request: NextRequest) {
     // Hash password
     const hashedPassword = await hash(password, 12);
 
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash: hashedPassword,
-        firstName,
-        lastName,
-        phoneNumber: phone,
-        userType,
-        profile: {
-          create: {
-            firstName,
-            lastName,
-            phone,
-            company,
-          },
+    // Create user with appropriate profile based on userType
+    let userData: any = {
+      email,
+      passwordHash: hashedPassword,
+      firstName,
+      lastName,
+      phoneNumber: phone || '',
+      userType,
+    };
+
+    // Add profile based on user type
+    if (userType === 'HEALTHCARE_PROVIDER' && organizationName) {
+      userData.healthcareProfile = {
+        create: {
+          organizationName,
+          organizationType: 'HOSPITAL', // Default, should be provided by form
+          licenseNumber: licenseNumber || '',
+          address: {}, // Should be provided by form
+          specializations: [],
         },
-      },
+      };
+    } else if (userType === 'EQUIPMENT_SUPPLIER' && organizationName) {
+      userData.supplierProfile = {
+        create: {
+          companyName: organizationName,
+          businessRegistrationNumber: licenseNumber || '',
+          address: {}, // Should be provided by form
+          productCategories: [],
+          certifications: [],
+        },
+      };
+    } else if (userType === 'MAINTENANCE_ENGINEER') {
+      userData.engineerProfile = {
+        create: {
+          certificationNumber: licenseNumber || '',
+          specializations: [],
+          experienceYears: 0,
+          serviceAreas: [],
+        },
+      };
+    } else if (userType === 'INDIVIDUAL_CUSTOMER') {
+      userData.individualProfile = {
+        create: {
+          dateOfBirth: null,
+          address: {},
+        },
+      };
+    }
+
+    const user = await prisma.user.create({
+      data: userData,
       select: {
         id: true,
         email: true,
-        name: true,
-        role: true,
+        firstName: true,
+        lastName: true,
+        userType: true,
+        createdAt: true,
       },
     });
 
@@ -73,8 +123,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: 'User created successfully',
-        user,
+        message: 'User created successfully. Please check your email for verification.',
+        user: {
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+          userType: user.userType,
+        },
       },
       { status: 201 }
     );
