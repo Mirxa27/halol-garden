@@ -35,14 +35,20 @@
     
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./client/*"],
-      "@shared/*": ["./shared/*"]
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@shared/*": ["./shared/*"],
+      "@lib/*": ["./lib/*"]
     }
   },
   "include": [
+    "app/**/*",
+    "components/**/*",
+    "contexts/**/*",
     "client/**/*",
     "server/**/*",
     "shared/**/*",
+    "lib/**/*",
     "vite.config.ts",
     "vite.config.server.ts"
   ],
