@@ -730,7 +730,7 @@ export default function ServiceDetails() {
                                         : 'text-muted-foreground'
                                     }`}
                                   />
-                                )}
+                                )},
                                 <span className="text-sm text-muted-foreground mr-2">•</span>
                                 <Badge variant="outline" className="text-xs">
                                   {review.serviceType}

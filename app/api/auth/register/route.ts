@@ -46,9 +46,11 @@ export async function POST(request: NextRequest) {
     const user = await prisma.user.create({
       data: {
         email,
-        password: hashedPassword,
-        name: `${firstName} ${lastName}`,
-        role: userType === 'EQUIPMENT_SUPPLIER' ? 'SUPPLIER' : 'BUYER',
+        passwordHash: hashedPassword,
+        firstName,
+        lastName,
+        phoneNumber: phone,
+        userType,
         profile: {
           create: {
             firstName,
