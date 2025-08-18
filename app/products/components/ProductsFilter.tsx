@@ -24,18 +24,18 @@ export function ProductsFilter({ filters }: FiltersProps) {
   const { t } = useLanguage();
 
   const categories = [
-    { value: 'diagnostic', label: t.categories.diagnostic },
-    { value: 'surgical', label: t.categories.surgical },
-    { value: 'monitoring', label: t.categories.monitoring },
-    { value: 'therapeutic', label: t.categories.therapeutic },
-    { value: 'laboratory', label: t.categories.laboratory },
-    { value: 'emergency', label: t.categories.emergency },
+    { value: 'diagnostic', label: t('filter.category') },
+    { value: 'surgical', label: t('filter.category') },
+    { value: 'monitoring', label: t('filter.category') },
+    { value: 'therapeutic', label: t('filter.category') },
+    { value: 'laboratory', label: t('filter.category') },
+    { value: 'emergency', label: t('filter.category') },
   ];
 
   const conditions = [
-    { value: 'new', label: t.product.new },
-    { value: 'refurbished', label: t.product.refurbished },
-    { value: 'used', label: t.product.used },
+    { value: 'new', label: t('filter.new') },
+    { value: 'refurbished', label: t('filter.refurbished') },
+    { value: 'used', label: t('filter.used') },
   ];
 
   const updateFilter = (key: string, value: any) => {
@@ -57,7 +57,7 @@ export function ProductsFilter({ filters }: FiltersProps) {
       <div className="flex items-center justify-between">
         <h3 className="font-semibold flex items-center gap-2">
           <Filter className="h-4 w-4" />
-          {t.search.filters}
+          {t('common.filter')}
         </h3>
         <Button variant="ghost" size="sm" onClick={clearFilters}>
           <X className="h-4 w-4" />
@@ -66,7 +66,7 @@ export function ProductsFilter({ filters }: FiltersProps) {
 
       {/* Categories */}
       <div>
-        <Label className="mb-3 block">{t.product.category}</Label>
+        <Label className="mb-3 block">{t('filter.category')}</Label>
         <div className="space-y-2">
           {categories.map((category) => (
             <div key={category.value} className="flex items-center space-x-2">
@@ -110,7 +110,7 @@ export function ProductsFilter({ filters }: FiltersProps) {
 
       {/* Condition */}
       <div>
-        <Label className="mb-3 block">{t.product.condition}</Label>
+        <Label className="mb-3 block">{t('filter.condition')}</Label>
         <div className="space-y-2">
           {conditions.map((condition) => (
             <div key={condition.value} className="flex items-center space-x-2">
@@ -134,12 +134,12 @@ export function ProductsFilter({ filters }: FiltersProps) {
 
       {/* Availability */}
       <div>
-        <Label className="mb-3 block">{t.product.availability}</Label>
+        <Label className="mb-3 block">{t('filter.availability')}</Label>
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <Checkbox id="inStock" />
             <Label htmlFor="inStock" className="text-sm font-normal cursor-pointer">
-              {t.product.inStock}
+              {t('products.inStock')}
             </Label>
           </div>
         </div>

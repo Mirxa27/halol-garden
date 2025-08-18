@@ -35,8 +35,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   const filters = {
     search: searchParams.search || '',
     category: searchParams.category || '',
-    minPrice: searchParams.minPrice ? parseInt(searchParams.minPrice) : undefined,
-    maxPrice: searchParams.maxPrice ? parseInt(searchParams.maxPrice) : undefined,
+    ...(searchParams.minPrice && { minPrice: parseInt(searchParams.minPrice) }),
+    ...(searchParams.maxPrice && { maxPrice: parseInt(searchParams.maxPrice) }),
     supplier: searchParams.supplier || '',
     condition: searchParams.condition || '',
   };

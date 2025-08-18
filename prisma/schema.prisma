@@ -77,6 +77,7 @@ model User {
   wishlist           WishlistItem[]
   cart               Cart?
   supportTickets     SupportTicket[]
+  verificationTokens VerificationToken[]
   
   @@index([email])
   @@index([userType])
@@ -1200,4 +1201,18 @@ model EnvSnapshot {
 
   @@index([createdAt])
   @@index([isActive])
+}
+
+model VerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  type      String   @default("EMAIL_VERIFICATION")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }
