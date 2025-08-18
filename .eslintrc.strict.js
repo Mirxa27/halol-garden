@@ -1,0 +1,160 @@
+module.exports = {
+  extends: [
+    'next/core-web-vitals',
+    'plugin:@typescript-eslint/recommended',
+    'plugin:@typescript-eslint/recommended-requiring-type-checking',
+  ],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 2022,
+    sourceType: 'module',
+    project: './tsconfig.json',
+    tsconfigRootDir: __dirname,
+  },
+  plugins: ['@typescript-eslint', 'react', 'react-hooks'],
+  rules: {
+    // STRICT PRODUCTION RULES - NO EXCEPTIONS
+    
+    // No debugging
+    'no-console': 'error',
+    'no-debugger': 'error',
+    'no-alert': 'error',
+    
+    // TypeScript strict
+    '@typescript-eslint/no-explicit-any': 'error',
+    '@typescript-eslint/no-unused-vars': ['error', { 
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_' 
+    }],
+    '@typescript-eslint/explicit-function-return-type': ['error', {
+      allowExpressions: true,
+      allowTypedFunctionExpressions: true,
+    }],
+    '@typescript-eslint/no-non-null-assertion': 'error',
+    '@typescript-eslint/strict-boolean-expressions': ['error', {
+      allowString: false,
+      allowNumber: false,
+      allowNullableObject: false,
+    }],
+    '@typescript-eslint/no-floating-promises': 'error',
+    '@typescript-eslint/no-misused-promises': 'error',
+    '@typescript-eslint/await-thenable': 'error',
+    '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+    '@typescript-eslint/prefer-nullish-coalescing': 'error',
+    '@typescript-eslint/prefer-optional-chain': 'error',
+    '@typescript-eslint/no-unsafe-assignment': 'error',
+    '@typescript-eslint/no-unsafe-call': 'error',
+    '@typescript-eslint/no-unsafe-member-access': 'error',
+    '@typescript-eslint/no-unsafe-return': 'error',
+    '@typescript-eslint/require-await': 'error',
+    '@typescript-eslint/restrict-template-expressions': 'error',
+    
+    // React strict
+    'react/prop-types': 'off', // We use TypeScript
+    'react/display-name': 'error',
+    'react/jsx-no-target-blank': 'error',
+    'react/no-danger': 'error',
+    'react/no-deprecated': 'error',
+    'react/no-direct-mutation-state': 'error',
+    'react/no-find-dom-node': 'error',
+    'react/no-is-mounted': 'error',
+    'react/no-render-return-value': 'error',
+    'react/no-string-refs': 'error',
+    'react/no-unescaped-entities': 'error',
+    'react/no-unknown-property': 'error',
+    'react/no-unsafe': 'error',
+    'react/require-render-return': 'error',
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'error',
+    
+    // Code quality
+    'no-var': 'error',
+    'prefer-const': 'error',
+    'no-unused-expressions': 'error',
+    'no-useless-return': 'error',
+    'no-useless-concat': 'error',
+    'no-useless-constructor': 'error',
+    'no-prototype-builtins': 'error',
+    'no-eval': 'error',
+    'no-implied-eval': 'error',
+    'no-new-func': 'error',
+    'no-script-url': 'error',
+    'no-with': 'error',
+    'no-return-await': 'error',
+    'require-await': 'error',
+    'no-await-in-loop': 'warn',
+    'no-promise-executor-return': 'error',
+    'prefer-promise-reject-errors': 'error',
+    
+    // Best practices
+    'array-callback-return': 'error',
+    'block-scoped-var': 'error',
+    'consistent-return': 'error',
+    'curly': ['error', 'all'],
+    'default-case': 'error',
+    'default-case-last': 'error',
+    'dot-notation': 'error',
+    'eqeqeq': ['error', 'always'],
+    'no-case-declarations': 'error',
+    'no-else-return': 'error',
+    'no-empty-function': 'error',
+    'no-empty-pattern': 'error',
+    'no-fallthrough': 'error',
+    'no-global-assign': 'error',
+    'no-implicit-coercion': 'error',
+    'no-implicit-globals': 'error',
+    'no-loop-func': 'error',
+    'no-magic-numbers': ['warn', { 
+      ignore: [0, 1, -1, 2, 100, 1000],
+      ignoreArrayIndexes: true,
+      enforceConst: true,
+    }],
+    'no-multi-spaces': 'error',
+    'no-multi-str': 'error',
+    'no-new': 'error',
+    'no-new-wrappers': 'error',
+    'no-octal-escape': 'error',
+    'no-param-reassign': 'error',
+    'no-redeclare': 'error',
+    'no-return-assign': 'error',
+    'no-self-assign': 'error',
+    'no-self-compare': 'error',
+    'no-sequences': 'error',
+    'no-throw-literal': 'error',
+    'no-unmodified-loop-condition': 'error',
+    'no-unused-labels': 'error',
+    'no-useless-call': 'error',
+    'no-useless-catch': 'error',
+    'no-void': 'error',
+    'prefer-regex-literals': 'error',
+    'radix': 'error',
+    'yoda': 'error',
+    
+    // Import rules
+    'import/no-duplicates': 'error',
+    'import/no-mutable-exports': 'error',
+    'import/no-cycle': 'error',
+    'import/no-self-import': 'error',
+    'import/first': 'error',
+    'import/newline-after-import': 'error',
+    'import/no-anonymous-default-export': 'error',
+  },
+  overrides: [
+    {
+      // Allow console and any in test files only
+      files: ['*.test.ts', '*.test.tsx', '*.spec.ts', '*.spec.tsx'],
+      rules: {
+        'no-console': 'off',
+        '@typescript-eslint/no-explicit-any': 'warn',
+        'no-magic-numbers': 'off',
+      },
+    },
+    {
+      // Configuration files can use require
+      files: ['*.config.js', '*.config.ts'],
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+      },
+    },
+  ],
+};
