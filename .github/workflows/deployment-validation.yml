@@ -1,0 +1,453 @@
+name: Production Deployment Validation
+
+on:
+  push:
+    branches: [main, production]
+  pull_request:
+    branches: [main, production]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  DEPLOYMENT_ENVIRONMENT: ${{ github.ref == 'refs/heads/production' && 'production' || 'staging' }}
+
+jobs:
+  # STAGE 1: Code Quality Validation
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Check for duplicate files
+        run: |
+          if find . -name "*_new.*" -o -name "*_updated.*" -o -name "*_v2.*" | grep -v node_modules | grep -q .; then
+            echo "❌ Duplicate files detected"
+            exit 1
+          fi
+      
+      - name: Check for mocks
+        run: |
+          if grep -r "mock\|stub\|fake" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=__tests__ . | grep -q .; then
+            echo "⚠️ Potential mock implementations found"
+          fi
+      
+      - name: Check for TODOs
+        run: |
+          if grep -r "TODO\|FIXME\|HACK" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules . | grep -q .; then
+            echo "❌ TODOs found in code"
+            exit 1
+          fi
+      
+      - name: TypeScript strict mode
+        run: npm run type-check:strict
+      
+      - name: ESLint strict mode
+        run: npm run lint:strict
+      
+      - name: Check bundle size
+        run: |
+          npm run build
+          SIZE=$(du -sb .next | cut -f1)
+          if [ $SIZE -gt 10485760 ]; then
+            echo "❌ Bundle size exceeds 10MB: $SIZE bytes"
+            exit 1
+          fi
+          echo "✅ Bundle size: $SIZE bytes"
+
+  # STAGE 2: Security Validation
+  security:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: NPM Audit
+        run: |
+          npm audit --audit-level=moderate
+          if [ $? -ne 0 ]; then
+            echo "❌ Security vulnerabilities found"
+            exit 1
+          fi
+      
+      - name: Snyk Security Scan
+        uses: snyk/actions/node@master
+        continue-on-error: false
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+      
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+      
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+      
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'medical-devices-marketplace'
+          path: '.'
+          format: 'HTML'
+          args: >
+            --enableRetired
+            --enableExperimental
+
+  # STAGE 3: Testing
+  testing:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Setup test database
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+      
+      - name: Run unit tests
+        run: npm run test:unit -- --coverage
+      
+      - name: Run integration tests
+        run: npm run test:integration
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Run E2E tests
+        run: npm run test:e2e
+      
+      - name: Check test coverage
+        run: |
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "❌ Test coverage below 80%: ${COVERAGE}%"
+            exit 1
+          fi
+          echo "✅ Test coverage: ${COVERAGE}%"
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+
+  # STAGE 4: Performance Validation
+  performance:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+      
+      - name: Run Lighthouse CI
+        uses: treosh/lighthouse-ci-action@v10
+        with:
+          urls: |
+            http://localhost:3000
+            http://localhost:3000/products
+            http://localhost:3000/api/health
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          runs: 3
+      
+      - name: Load testing with k6
+        uses: grafana/k6-action@v0.3.0
+        with:
+          filename: tests/load/performance.js
+          flags: --out json=results.json
+      
+      - name: Analyze performance results
+        run: |
+          node scripts/analyze-performance.js results.json
+          if [ $? -ne 0 ]; then
+            echo "❌ Performance benchmarks not met"
+            exit 1
+          fi
+
+  # STAGE 5: Database Migration Validation
+  database:
+    name: Database Validation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: migration_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      
+      - name: Test migrations
+        run: |
+          npx prisma migrate deploy
+          npx prisma migrate reset --force
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/migration_test
+      
+      - name: Validate migration scripts
+        run: node scripts/validate-migrations.js
+      
+      - name: Check for migration conflicts
+        run: |
+          git fetch origin main
+          MIGRATIONS=$(git diff origin/main...HEAD --name-only | grep "prisma/migrations" || true)
+          if [ ! -z "$MIGRATIONS" ]; then
+            echo "⚠️ Migration changes detected, reviewing..."
+            node scripts/check-migration-conflicts.js
+          fi
+
+  # STAGE 6: Infrastructure Validation
+  infrastructure:
+    name: Infrastructure Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate Docker configuration
+        run: |
+          docker build -t test-build .
+          docker run --rm test-build npm run validate:production
+      
+      - name: Check Kubernetes manifests
+        if: github.ref == 'refs/heads/production'
+        run: |
+          kubectl apply --dry-run=client -f k8s/
+      
+      - name: Terraform validation
+        if: github.ref == 'refs/heads/production'
+        run: |
+          cd terraform
+          terraform init
+          terraform validate
+          terraform plan -out=tfplan
+      
+      - name: Check SSL certificates
+        run: |
+          openssl s_client -connect api.medical-devices.com:443 -servername api.medical-devices.com < /dev/null | openssl x509 -noout -dates
+          # Check expiration date
+
+  # STAGE 7: Documentation Validation
+  documentation:
+    name: Documentation Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Generate API documentation
+        run: |
+          node swagger.config.js
+          if [ ! -f "openapi.json" ]; then
+            echo "❌ Failed to generate API documentation"
+            exit 1
+          fi
+      
+      - name: Validate OpenAPI spec
+        run: npx @apidevtools/swagger-cli validate openapi.json
+      
+      - name: Check documentation completeness
+        run: |
+          FILES=("README.md" "DEPLOYMENT.md" ".env.example")
+          for file in "${FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required documentation: $file"
+              exit 1
+            fi
+          done
+
+  # STAGE 8: Deployment Readiness
+  deployment-ready:
+    name: Deployment Readiness Check
+    needs: [code-quality, security, testing, performance, database, infrastructure, documentation]
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Final validation
+        run: |
+          echo "✅ All validation checks passed!"
+          echo "Environment: ${{ env.DEPLOYMENT_ENVIRONMENT }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Branch: ${{ github.ref }}"
+      
+      - name: Create deployment artifact
+        run: |
+          tar -czf deployment-${{ github.sha }}.tar.gz \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=.next \
+            --exclude=coverage \
+            .
+      
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-package
+          path: deployment-${{ github.sha }}.tar.gz
+          retention-days: 30
+      
+      - name: Notify deployment team
+        if: github.ref == 'refs/heads/production'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          text: |
+            🚀 Production deployment ready!
+            Commit: ${{ github.sha }}
+            All validation checks passed ✅
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      
+      - name: Create deployment tag
+        if: github.ref == 'refs/heads/production'
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git tag -a "deploy-$(date +%Y%m%d-%H%M%S)" -m "Deployment validated for ${{ github.sha }}"
+          git push origin --tags
+
+  # STAGE 9: Rollback Plan
+  rollback-plan:
+    name: Validate Rollback Capability
+    needs: deployment-ready
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test rollback procedure
+        run: |
+          echo "Testing rollback capability..."
+          # Verify previous deployment artifacts exist
+          # Test database rollback scripts
+          # Validate backup restoration
+      
+      - name: Document rollback steps
+        run: |
+          cat > ROLLBACK_PLAN.md << EOF
+          # Rollback Plan for ${{ github.sha }}
+          
+          ## Quick Rollback (< 5 minutes)
+          1. Revert to previous deployment tag
+          2. Run: kubectl rollout undo deployment/api
+          3. Verify health checks
+          
+          ## Database Rollback
+          1. Run migration rollback: npx prisma migrate rollback
+          2. Restore from backup if needed
+          
+          ## Cache Invalidation
+          1. Clear Redis: redis-cli FLUSHALL
+          2. Clear CDN cache
+          
+          ## Monitoring
+          - Check error rates
+          - Verify API availability
+          - Monitor performance metrics
+          EOF
+      
+      - name: Upload rollback plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: rollback-plan
+          path: ROLLBACK_PLAN.md

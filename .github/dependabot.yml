@@ -1,0 +1,128 @@
+# Dependabot configuration for automated dependency updates
+# Enforces STRICT DEVELOPMENT PRINCIPLES - Latest stable versions only
+
+version: 2
+updates:
+  # NPM dependencies
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    
+    # Update strategy
+    versioning-strategy: increase
+    
+    # Security updates
+    allow:
+      - dependency-type: "all"
+    
+    # Commit message format
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    
+    # Labels for PRs
+    labels:
+      - "dependencies"
+      - "automated"
+      - "security"
+    
+    # Reviewers
+    reviewers:
+      - "@security-team"
+    
+    # Milestone
+    milestone: 1
+    
+    # Ignore specific dependencies if needed
+    ignore:
+      # Example: Don't update Next.js major versions automatically
+      # - dependency-name: "next"
+      #   update-types: ["version-update:semver-major"]
+    
+    # Group updates
+    groups:
+      # Group all Radix UI updates together
+      radix-ui:
+        patterns:
+          - "@radix-ui/*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group all testing library updates
+      testing:
+        patterns:
+          - "@testing-library/*"
+          - "jest*"
+          - "vitest*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group all ESLint updates
+      linting:
+        patterns:
+          - "eslint*"
+          - "@typescript-eslint/*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Group all type definitions
+      types:
+        patterns:
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+    
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    
+    # Labels for PRs
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "automated"
+    
+    # Commit message format
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    
+  # Docker dependencies (if applicable)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    
+    # Labels for PRs
+    labels:
+      - "dependencies"
+      - "docker"
+      - "automated"
+    
+    # Commit message format
+    commit-message:
+      prefix: "build"
+      include: "scope"
+
+# Security advisories configuration
+# Automatically creates PRs for security vulnerabilities
+security-updates:
+  open-pull-requests-limit: 10
