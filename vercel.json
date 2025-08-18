@@ -1,23 +1,59 @@
 {
   "version": 2,
   "name": "medical-devices-marketplace",
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
-  "functions": {
-    "pages/api/**/*.ts": {
-      "maxDuration": 30,
-      "memory": 1024
-    },
-    "pages/api/admin/**/*.ts": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "pages/api/ai/**/*.ts": {
-      "maxDuration": 60,
-      "memory": 2048
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "public": true,
+  "github": {
+    "enabled": true,
+    "autoAlias": true
+  },
+  "env": {
+    "NODE_ENV": "production",
+    "NEXT_PUBLIC_APP_URL": "@app_url",
+    "NEXT_PUBLIC_API_URL": "@api_url",
+    "NEXT_PUBLIC_WS_URL": "@ws_url",
+    "DATABASE_URL": "@database_url",
+    "REDIS_URL": "@redis_url",
+    "ELASTICSEARCH_URL": "@elasticsearch_url",
+    "JWT_SECRET": "@jwt_secret",
+    "SESSION_SECRET": "@session_secret",
+    "NEXTAUTH_URL": "@nextauth_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret",
+    "ENCRYPTION_KEY": "@encryption_key",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@stripe_publishable_key",
+    "STRIPE_SECRET_KEY": "@stripe_secret_key",
+    "NEXT_PUBLIC_PAYPAL_CLIENT_ID": "@paypal_client_id",
+    "PAYPAL_CLIENT_SECRET": "@paypal_client_secret",
+    "NEXT_PUBLIC_MYFATOORAH_API_KEY": "@myfatoorah_api_key",
+    "MYFATOORAH_API_SECRET": "@myfatoorah_api_secret",
+    "SMTP_HOST": "@smtp_host",
+    "SMTP_PORT": "@smtp_port",
+    "SMTP_USER": "@smtp_user",
+    "SMTP_PASS": "@smtp_pass",
+    "SMTP_FROM": "@smtp_from",
+    "AWS_ACCESS_KEY_ID": "@aws_access_key_id",
+    "AWS_SECRET_ACCESS_KEY": "@aws_secret_access_key",
+    "AWS_REGION": "@aws_region",
+    "S3_BUCKET": "@s3_bucket",
+    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
+    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
+    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
+    "NEXT_PUBLIC_SENTRY_DSN": "@sentry_dsn",
+    "SENTRY_AUTH_TOKEN": "@sentry_auth_token",
+    "NEXT_PUBLIC_GA_ID": "@ga_id",
+    "OPENAI_API_KEY": "@openai_api_key",
+    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "@google_maps_api_key",
+    "SLACK_WEBHOOK_URL": "@slack_webhook_url",
+    "NOTIFICATION_EMAIL": "@notification_email"
+  },
+  "build": {
+    "env": {
+      "NODE_ENV": "production",
+      "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
   "headers": [
@@ -25,16 +61,40 @@
       "source": "/api/(.*)",
       "headers": [
         {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
           "key": "Access-Control-Allow-Origin",
           "value": "*"
         },
         {
           "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "value": "GET,DELETE,PATCH,POST,PUT"
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, Content-Type, Authorization"
+          "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
         }
       ]
     },
@@ -47,7 +107,7 @@
         },
         {
           "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
+          "value": "DENY"
         },
         {
           "key": "X-XSS-Protection",
@@ -59,23 +119,95 @@
         },
         {
           "key": "Permissions-Policy",
-          "value": "camera=(), microphone=(), geolocation=()"
+          "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains; preload"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://api.stripe.com https://www.google-analytics.com wss://*.medical-devices.com https://*.sentry.io; frame-src 'self' https://www.youtube.com https://checkout.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
         }
       ]
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/api/v2/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/api/v3/:path*",
+      "destination": "/api/:path*"
+    },
+    {
+      "source": "/ws/:path*",
+      "destination": "https://ws.medical-devices.com/:path*"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/dashboard",
+      "destination": "/dashboard/overview",
+      "permanent": false
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/dashboard",
+      "permanent": false
+    }
+  ],
+  "functions": {
+    "pages/api/auth/[...nextauth].ts": {
+      "maxDuration": 10
+    },
+    "pages/api/products/search.ts": {
+      "maxDuration": 30
+    },
+    "pages/api/orders/create.ts": {
+      "maxDuration": 30
+    },
+    "pages/api/payments/process.ts": {
+      "maxDuration": 30
+    },
+    "pages/api/chat/send.ts": {
+      "maxDuration": 10
+    },
+    "pages/api/notifications/send.ts": {
+      "maxDuration": 10
+    },
+    "pages/api/metrics/[...params].ts": {
+      "maxDuration": 10
+    },
+    "pages/api/backup/trigger.ts": {
+      "maxDuration": 60
+    }
+  },
   "crons": [
     {
-      "path": "/api/cron/cleanup",
+      "path": "/api/cron/backup",
       "schedule": "0 2 * * *"
     },
     {
-      "path": "/api/cron/maintenance-reminders",
-      "schedule": "0 9 * * *"
+      "path": "/api/cron/cleanup",
+      "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/rental-expiry",
-      "schedule": "0 10 * * *"
+      "path": "/api/cron/reports",
+      "schedule": "0 8 * * 1"
+    },
+    {
+      "path": "/api/cron/health-check",
+      "schedule": "*/5 * * * *"
     }
-  ]
+  ],
+  "regions": ["iad1", "sfo1", "lhr1"],
+  "trailingSlash": false,
+  "cleanUrls": true,
+  "ignoreBuildErrors": false
 }
