@@ -134,6 +134,8 @@
     "vitest": "^1.0.4",
     "@testing-library/react": "^14.1.2",
     "@testing-library/jest-dom": "^6.0.3",
+    "vite": "^5.0.12",
+    "@vitejs/plugin-react-swc": "^3.5.1",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.55.0",
     "eslint-config-next": "^14.0.4",
