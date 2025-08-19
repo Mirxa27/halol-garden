@@ -36,7 +36,7 @@ export function ProductsSort({ currentSort }: ProductsSortProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-muted-foreground">{t.common.sort}:</span>
+      <span className="text-sm text-muted-foreground">{t('common.sort')}:</span>
       <Select value={currentSort} onValueChange={handleSortChange}>
         <SelectTrigger className="w-[180px]">
           <SelectValue />

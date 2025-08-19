@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Star, ShoppingCart, Heart, Eye } from 'lucide-react';
-import { formatCurrency } from '@/lib/i18n';
+import { formatCurrency } from '@/lib/utils';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 

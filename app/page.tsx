@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { SearchBar } from '@/components/SearchBar';
 import { ProductCard } from '@/components/ProductCard';
-import { TestimonialCard } from '@/components/TestimonialCard';
+
 import { getTranslations } from '@/lib/i18n';
 
 export const metadata: Metadata = {

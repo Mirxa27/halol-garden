@@ -37,6 +37,12 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "db:setup": "bash scripts/db-setup.sh",
+    "db:reset": "bash scripts/db-setup.sh --reset",
+    "db:backup": "bash scripts/db-setup.sh --backup",
+    "db:docker:up": "docker-compose -f docker-compose.db.yml up -d",
+    "db:docker:down": "docker-compose -f docker-compose.db.yml down",
+    "db:docker:reset": "docker-compose -f docker-compose.db.yml down -v && docker-compose -f docker-compose.db.yml up -d",
     "db:backup": "./scripts/backup-automation.sh backup full",
     "db:restore": "./scripts/backup-automation.sh restore",
     "analyze": "ANALYZE=true next build",
@@ -179,5 +185,8 @@
     "typescript"
   ],
   "author": "Your Company Name",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
 }
