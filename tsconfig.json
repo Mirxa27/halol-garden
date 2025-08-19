@@ -1,9 +1,9 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": [
-      "ES2020",
+      "ES2022",
       "DOM",
       "DOM.Iterable"
     ],
@@ -18,19 +18,39 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
+    
+    /* STRICT MODE - PRODUCTION STANDARDS */
     "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    
+    /* ADDITIONAL STRICT CHECKS */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noImplicitAny": true,
-    "noFallthroughCasesInSwitch": true,
-    "strictNullChecks": true,
-    "strictBindCallApply": true,
-    "strictFunctionTypes": true,
-    "strictPropertyInitialization": true,
     "noImplicitReturns": true,
-    "noImplicitThis": true,
-    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    
+    /* CODE QUALITY */
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "noEmitOnError": false,
+    "preserveConstEnums": true,
+    "removeComments": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "resolveJsonModule": true,
+    
+    /* Path mapping */
     "baseUrl": ".",
     "paths": {
       "@/*": [
@@ -54,13 +74,60 @@
       "@/utils/*": [
         "./utils/*"
       ],
+      "@/app/*": [
+        "./app/*"
+      ],
+      "@/client/*": [
+        "./client/*"
+      ],
+      "@/server/*": [
+        "./server/*"
+      ],
+      "@/services/*": [
+        "./services/*"
+      ],
+      "@/config/*": [
+        "./config/*"
+      ],
       "@shared/*": [
         "./shared/*"
+      ],
+      "@components/*": [
+        "./components/*"
+      ],
+      "@lib/*": [
+        "./lib/*"
+      ],
+      "@app/*": [
+        "./app/*"
+      ],
+      "@client/*": [
+        "./client/*"
+      ],
+      "@server/*": [
+        "./server/*"
+      ],
+      "@contexts/*": [
+        "./contexts/*"
+      ],
+      "@hooks/*": [
+        "./hooks/*"
+      ],
+      "@utils/*": [
+        "./utils/*"
+      ],
+      "@types/*": [
+        "./types/*"
+      ],
+      "@services/*": [
+        "./services/*"
+      ],
+      "@config/*": [
+        "./config/*"
       ]
     },
     "allowJs": true,
     "incremental": true,
-    "resolveJsonModule": true,
     "plugins": [
       {
         "name": "next"
@@ -68,15 +135,35 @@
     ]
   },
   "include": [
+    "**/*.d.ts",
+    "app/**/*",
     "client/**/*",
+    "components/**/*",
+    "config/**/*",
+    "contexts/**/*",
+    "hooks/**/*",
+    "lib/**/*",
+    "next.config.js",
     "server/**/*",
+    "services/**/*",
     "shared/**/*",
-    "vite.config.ts",
+    "types/**/*",
+    "utils/**/*",
     "vite.config.server.ts",
+    "vite.config.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist",
+    ".next",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "__tests__",
+    "__mocks__",
+    "cypress"
   ]
 }
