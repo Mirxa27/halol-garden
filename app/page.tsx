@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   keywords: 'medical devices, healthcare equipment, medical supplies, hospital equipment',
 };
 
-export default async function HomePage() {
-  const t = await getTranslations();
+export default function HomePage() {
+  const t = getTranslations();
 
   // Mock data - would come from API
   const featuredProducts = [

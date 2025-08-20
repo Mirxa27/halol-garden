@@ -1,19 +1,11 @@
 import type { Metadata } from 'next';
-import { Inter, Cairo } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
-
-const cairo = Cairo({ 
-  subsets: ['arabic'],
-  variable: '--font-cairo',
-});
+// Use system fonts as fallback for offline builds
+const fontClass = 'font-sans';
 
 export const metadata: Metadata = {
   title: {
@@ -88,7 +80,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${cairo.variable} font-sans antialiased`}>
+      <body className={`${fontClass} antialiased`}>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <Header />

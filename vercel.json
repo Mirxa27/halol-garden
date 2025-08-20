@@ -11,45 +11,7 @@
     "enabled": true,
     "autoAlias": true
   },
-  "env": {
-    "NODE_ENV": "production",
-    "NEXT_PUBLIC_APP_URL": "@app_url",
-    "NEXT_PUBLIC_API_URL": "@api_url",
-    "NEXT_PUBLIC_WS_URL": "@ws_url",
-    "DATABASE_URL": "@database_url",
-    "REDIS_URL": "@redis_url",
-    "ELASTICSEARCH_URL": "@elasticsearch_url",
-    "JWT_SECRET": "@jwt_secret",
-    "SESSION_SECRET": "@session_secret",
-    "NEXTAUTH_URL": "@nextauth_url",
-    "NEXTAUTH_SECRET": "@nextauth_secret",
-    "ENCRYPTION_KEY": "@encryption_key",
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY": "@stripe_publishable_key",
-    "STRIPE_SECRET_KEY": "@stripe_secret_key",
-    "NEXT_PUBLIC_PAYPAL_CLIENT_ID": "@paypal_client_id",
-    "PAYPAL_CLIENT_SECRET": "@paypal_client_secret",
-    "NEXT_PUBLIC_MYFATOORAH_API_KEY": "@myfatoorah_api_key",
-    "MYFATOORAH_API_SECRET": "@myfatoorah_api_secret",
-    "SMTP_HOST": "@smtp_host",
-    "SMTP_PORT": "@smtp_port",
-    "SMTP_USER": "@smtp_user",
-    "SMTP_PASS": "@smtp_pass",
-    "SMTP_FROM": "@smtp_from",
-    "AWS_ACCESS_KEY_ID": "@aws_access_key_id",
-    "AWS_SECRET_ACCESS_KEY": "@aws_secret_access_key",
-    "AWS_REGION": "@aws_region",
-    "S3_BUCKET": "@s3_bucket",
-    "CLOUDINARY_CLOUD_NAME": "@cloudinary_cloud_name",
-    "CLOUDINARY_API_KEY": "@cloudinary_api_key",
-    "CLOUDINARY_API_SECRET": "@cloudinary_api_secret",
-    "NEXT_PUBLIC_SENTRY_DSN": "@sentry_dsn",
-    "SENTRY_AUTH_TOKEN": "@sentry_auth_token",
-    "NEXT_PUBLIC_GA_ID": "@ga_id",
-    "OPENAI_API_KEY": "@openai_api_key",
-    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "@google_maps_api_key",
-    "SLACK_WEBHOOK_URL": "@slack_webhook_url",
-    "NOTIFICATION_EMAIL": "@notification_email"
-  },
+
   "build": {
     "env": {
       "NODE_ENV": "production",
@@ -124,10 +86,6 @@
         {
           "key": "Strict-Transport-Security",
           "value": "max-age=31536000; includeSubDomains; preload"
-        },
-        {
-          "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://api.stripe.com https://www.google-analytics.com wss://*.medical-devices.com https://*.sentry.io; frame-src 'self' https://www.youtube.com https://checkout.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;"
         }
       ]
     }
@@ -144,10 +102,6 @@
     {
       "source": "/api/v3/:path*",
       "destination": "/api/:path*"
-    },
-    {
-      "source": "/ws/:path*",
-      "destination": "https://ws.medical-devices.com/:path*"
     }
   ],
   "redirects": [
@@ -162,29 +116,8 @@
       "permanent": false
     }
   ],
-  "functions": {
-    "app/api/health.ts": {
-      "maxDuration": 5
-    }
-  },
-  "crons": [
-    {
-      "path": "/api/cron/backup",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/cleanup",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/reports",
-      "schedule": "0 8 * * 1"
-    },
-    {
-      "path": "/api/cron/health-check",
-      "schedule": "*/5 * * * *"
-    }
-  ],
+  "functions": {},
+  "crons": [],
   "regions": ["iad1", "sfo1", "lhr1"],
   "trailingSlash": false,
   "cleanUrls": true,
