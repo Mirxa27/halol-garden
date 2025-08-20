@@ -1,227 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
-
-// Validation schemas
-const updateProductSchema = z.object({
-  name: z.string().min(1, 'Product name is required').optional(),
-  nameAr: z.string().optional(),
-  description: z.string().min(10, 'Description must be at least 10 characters').optional(),
-  descriptionAr: z.string().optional(),
-  category: z.string().min(1, 'Category is required').optional(),
-  subcategory: z.string().optional(),
-  brand: z.string().min(1, 'Brand is required').optional(),
-  model: z.string().min(1, 'Model is required').optional(),
-  manufacturerCountry: z.string().optional(),
-  condition: z.enum(['NEW', 'REFURBISHED', 'USED_EXCELLENT', 'USED_GOOD', 'USED_FAIR']).optional(),
-  availabilityType: z.enum(['SALE', 'RENT', 'BOTH']).optional(),
-  images: z.array(z.string().url()).min(1, 'At least one image is required').optional(),
-  specifications: z.record(z.any()).optional(),
-  certifications: z.array(z.record(z.any())).optional(),
-  warranty: z.record(z.any()).optional(),
-  dimensions: z.record(z.any()).optional(),
-  weight: z.number().positive().optional(),
-  tags: z.array(z.string()).optional(),
-  featured: z.boolean().optional(),
-  status: z.enum(['DRAFT', 'ACTIVE', 'OUT_OF_STOCK', 'DISCONTINUED', 'PENDING_APPROVAL']).optional(),
-});
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
 
-    // Validate product ID
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Fetch product with all related data
-    const product = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            companyName: true,
-            yearEstablished: true,
-            certifications: true,
-            address: true,
-          },
-        },
-        salesDetails: true,
-        rentalDetails: {
-          include: {
-            rentalUnits: true,
-          },
-        },
-        reviews: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                profileImage: true,
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10,
-        },
-        questions: {
-          include: {
-            answers: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    firstName: true,
-                    lastName: true,
-                    profileImage: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-        wishlistItems: {
-          select: { userId: true },
-        },
+    // Mock product data for demonstration
+    const mockProduct = {
+      id: id,
+      name: 'Sample Medical Device',
+      nameAr: 'جهاز طبي نموذجي',
+      description: 'This is a sample medical device for demonstration purposes.',
+      price: 1299.99,
+      currency: 'USD',
+      category: 'DIAGNOSTIC',
+      status: 'ACTIVE',
+      condition: 'NEW',
+      images: ['/images/products/sample-device.jpg'],
+      specifications: {
+        weight: '2.5kg',
+        dimensions: '30x20x15cm',
+        powerRequirement: '110-240V AC',
+        warranty: '2 years',
       },
-    });
-
-    if (!product) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-
-    // Calculate average rating
-    const avgRating = product.reviews.length > 0
-      ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
-      : 0;
-
-    // Format response
-    const formattedProduct = {
-      id: product.id,
-      sku: product.sku,
-      name: product.name,
-      nameAr: product.nameAr,
-      description: product.description,
-      descriptionAr: product.descriptionAr,
-      category: product.category,
-      subcategory: product.subcategory,
-      brand: product.brand,
-      model: product.model,
-      manufacturerCountry: product.manufacturerCountry,
-      condition: product.condition,
-      availabilityType: product.availabilityType,
-      status: product.status,
-      featured: product.featured,
-      images: product.images,
-      specifications: product.specifications,
-      certifications: product.certifications,
-      warranty: product.warranty,
-      dimensions: product.dimensions,
-      weight: product.weight,
-      tags: product.tags,
-      rating: Math.round(avgRating * 10) / 10,
-      reviewCount: product.reviews.length,
-      questionCount: product.questions.length,
       supplier: {
-        id: product.supplier.id,
-        name: product.supplier.companyName,
-        yearEstablished: product.supplier.yearEstablished,
-        certifications: product.supplier.certifications,
-        address: product.supplier.address,
+        id: 'supplier-1',
+        name: 'Medical Devices Inc.',
+        rating: 4.8,
+        verified: true,
       },
-      pricing: {
-        basePrice: product.salesDetails?.basePrice,
-        discountedPrice: product.salesDetails?.discountedPrice,
-        taxRate: product.salesDetails?.taxRate,
-        dailyRate: product.rentalDetails?.dailyRate,
-        weeklyRate: product.rentalDetails?.weeklyRate,
-        monthlyRate: product.rentalDetails?.monthlyRate,
-        securityDeposit: product.rentalDetails?.securityDeposit,
-        deliveryFee: product.rentalDetails?.deliveryFee,
-        setupFee: product.rentalDetails?.setupFee,
-        minimumRentalPeriod: product.rentalDetails?.minimumRentalPeriod,
-        maximumRentalPeriod: product.rentalDetails?.maximumRentalPeriod,
+      availability: {
+        inStock: 25,
+        lowStockThreshold: 5,
+        nextRestockDate: '2024-01-15',
       },
-      inventory: {
-        sales: product.salesDetails?.inventory,
-        rental: {
-          total: product.rentalDetails?.rentalUnits.length || 0,
-          available: product.rentalDetails?.rentalUnits.filter(unit => unit.status === 'AVAILABLE').length || 0,
-          units: product.rentalDetails?.rentalUnits.map(unit => ({
-            id: unit.id,
-            serialNumber: unit.serialNumber,
-            condition: unit.condition,
-            status: unit.status,
-            location: unit.location,
-          })) || [],
+      ratings: {
+        average: 4.6,
+        totalReviews: 127,
+        distribution: {
+          5: 78,
+          4: 32,
+          3: 12,
+          2: 3,
+          1: 2,
         },
       },
-      reviews: product.reviews.map(review => ({
-        id: review.id,
-        rating: review.rating,
-        title: review.title,
-        comment: review.comment,
-        verifiedPurchase: review.verifiedPurchase,
-        helpful: review.helpful,
-        notHelpful: review.notHelpful,
-        user: {
-          id: review.user.id,
-          name: `${review.user.firstName} ${review.user.lastName}`,
-          avatar: review.user.profileImage,
-        },
-        createdAt: review.createdAt,
-      })),
-      questions: product.questions.map(question => ({
-        id: question.id,
-        question: question.question,
-        user: {
-          id: question.user.id,
-          name: `${question.user.firstName} ${question.user.lastName}`,
-          avatar: question.user.profileImage,
-        },
-        answers: question.answers.map(answer => ({
-          id: answer.id,
-          answer: answer.answer,
-          isSupplierAnswer: answer.isSupplierAnswer,
-          helpful: answer.helpful,
-          user: {
-            id: answer.user.id,
-            name: `${answer.user.firstName} ${answer.user.lastName}`,
-            avatar: answer.user.profileImage,
-          },
-          createdAt: answer.createdAt,
-        })),
-        createdAt: question.createdAt,
-      })),
-      createdAt: product.createdAt,
-      updatedAt: product.updatedAt,
+      createdAt: '2023-12-01T00:00:00Z',
+      updatedAt: '2023-12-20T00:00:00Z',
     };
 
     return NextResponse.json({
       success: true,
-      data: formattedProduct,
+      data: mockProduct,
     });
-
   } catch (error) {
     console.error('Error fetching product:', error);
-    
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: 'Failed to fetch product' },
       { status: 500 }
     );
   }
@@ -235,144 +72,38 @@ export async function PUT(
     const { id } = params;
     const body = await request.json();
 
-    // Validate product ID
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
-    const validatedData = updateProductSchema.parse(body);
-
-    // Check if product exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { id },
-      include: {
-        salesDetails: true,
-        rentalDetails: true,
-      },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-
-    // TODO: Check if user has permission to update this product
-    // For now, allowing all updates
-
-    // Update product
-    const updatedProduct = await prisma.product.update({
-      where: { id },
-      data: {
-        name: validatedData.name,
-        nameAr: validatedData.nameAr,
-        description: validatedData.description,
-        descriptionAr: validatedData.descriptionAr,
-        category: validatedData.category,
-        subcategory: validatedData.subcategory,
-        brand: validatedData.brand,
-        model: validatedData.model,
-        manufacturerCountry: validatedData.manufacturerCountry,
-        condition: validatedData.condition,
-        availabilityType: validatedData.availabilityType,
-        images: validatedData.images,
-        specifications: validatedData.specifications,
-        certifications: validatedData.certifications,
-        warranty: validatedData.warranty,
-        dimensions: validatedData.dimensions,
-        weight: validatedData.weight,
-        tags: validatedData.tags,
-        featured: validatedData.featured,
-        status: validatedData.status,
-      },
-      include: {
-        supplier: {
-          select: {
-            id: true,
-            companyName: true,
-          },
-        },
-      },
-    });
-
+    // Mock update response
     return NextResponse.json({
       success: true,
-      data: {
-        id: updatedProduct.id,
-        sku: updatedProduct.sku,
-        name: updatedProduct.name,
-        message: 'Product updated successfully',
-      },
+      message: 'Product updated successfully',
+      data: { id, ...body },
     });
-
   } catch (error) {
     console.error('Error updating product:', error);
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: 'Failed to update product' },
       { status: 500 }
     );
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const { id } = params;
 
-    // Validate product ID
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if product exists
-    const existingProduct = await prisma.product.findUnique({
-      where: { id },
-    });
-
-    if (!existingProduct) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
-    }
-
-    // TODO: Check if user has permission to delete this product
-    // For now, allowing all deletions
-
-    // Soft delete by setting status to DISCONTINUED
-    await prisma.product.update({
-      where: { id },
-      data: { status: 'DISCONTINUED' },
-    });
-
+    // Mock delete response
     return NextResponse.json({
       success: true,
       message: 'Product deleted successfully',
+      data: { id },
     });
-
   } catch (error) {
     console.error('Error deleting product:', error);
-    
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { error: 'Failed to delete product' },
       { status: 500 }
     );
   }

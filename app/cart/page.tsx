@@ -6,18 +6,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Truck, Shield, CreditCard } from 'lucide-react';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
 
 export const metadata: Metadata = {
   title: 'Shopping Cart | Medical Devices Marketplace',
   description: 'Review and checkout your medical equipment orders',
 };
 
-export default async function CartPage() {
-  const session = await getServerSession();
-  
-  // Fetch cart items (mock data for now)
+export default function CartPage() {
+  // Mock cart items for demonstration
   const cartItems = [
     {
       id: '1',

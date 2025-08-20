@@ -231,6 +231,6 @@ export const translations = {
   },
 };
 
-export async function getTranslations(lang: string = 'en') {
+export function getTranslations(lang: string = 'en') {
   return translations[lang as keyof typeof translations] || translations.en;
 }

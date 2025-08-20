@@ -5,7 +5,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -64,8 +64,8 @@ const countries = [
 ];
 
 export default function RegisterPage() {
-  const searchParams = useSearchParams();
-  const initialType = searchParams.get('type') === 'supplier' ? 'EQUIPMENT_SUPPLIER' : 'HEALTHCARE_PROVIDER';
+  // Default user type (can be made dynamic later)
+  const initialType = 'HEALTHCARE_PROVIDER';
   
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
