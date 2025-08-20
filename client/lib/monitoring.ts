@@ -175,6 +175,11 @@ class MonitoringService extends EventEmitter {
   }
 
   private consoleLog(entry: LogEntry): void {
+    // Only log to console in development environment
+    if (process.env.NODE_ENV !== 'development') {
+      return;
+    }
+
     const style = this.getConsoleStyle(entry.level);
     const prefix = `[${entry.level}] [${new Date(entry.timestamp).toLocaleTimeString()}]`;
     

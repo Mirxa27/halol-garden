@@ -337,18 +337,63 @@ export default function OrderTracking() {
     }
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (newMessage.trim()) {
-      // Here you would send the message to the backend
-      console.log('Sending message:', newMessage);
-      setNewMessage('');
+      try {
+        const response = await fetch('/api/support/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: id,
+            message: newMessage.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+
+        const result = await response.json();
+        setNewMessage('');
+        
+        // Refresh messages or update UI as needed
+        alert('Message sent successfully');
+      } catch (error) {
+        alert('Failed to send message. Please try again.');
+      }
     }
   };
 
-  const submitRating = () => {
+  const submitRating = async () => {
     if (rating > 0) {
-      // Here you would submit the rating to the backend
-      console.log('Submitting rating:', rating, 'feedback:', feedback);
+      try {
+        const response = await fetch('/api/orders/rating', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            orderId: id,
+            rating,
+            feedback: feedback.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to submit rating');
+        }
+
+        const result = await response.json();
+        alert('Rating submitted successfully');
+        
+        // Reset form
+        setRating(0);
+        setFeedback('');
+      } catch (error) {
+        alert('Failed to submit rating. Please try again.');
+      }
     }
   };
 

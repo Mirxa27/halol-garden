@@ -97,6 +97,11 @@ class Logger {
   }
 
   private logToConsole(entry: LogEntry): void {
+    // Only log to console in development environment
+    if (process.env.NODE_ENV !== 'development') {
+      return;
+    }
+
     const style = this.getConsoleStyle(entry.level);
     const prefix = `[${entry.level.toUpperCase()}] ${entry.timestamp}`;
     

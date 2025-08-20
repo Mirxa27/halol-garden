@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,166 +8,148 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   DollarSign, 
   Users, 
-  Eye,
-  Edit,
-  CheckCircle,
-  XCircle,
-  Download,
-  Settings,
-  Building,
   Package,
-  Bell,
-  Shield,
+  TrendingUp,
+  Loader2,
   RefreshCw,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  XCircle,
+  CheckCircle,
+  Clock,
+  Eye,
+  Download
 } from "lucide-react";
+
+interface DashboardData {
+  overview: {
+    totalUsers: { value: number; change: number; trend: 'up' | 'down' };
+    totalOrders: { value: number; change: number; trend: 'up' | 'down' };
+    totalRevenue: { value: number; change: number; trend: 'up' | 'down' };
+    totalProducts: { value: number; change: number; trend: 'up' | 'down' };
+  };
+  recentOrders: any[];
+  topProducts: any[];
+  analytics: {
+    usersByType: any[];
+    ordersByStatus: any[];
+    monthlyRevenue: any[];
+  };
+}
 
 export default function AdminDashboard() {
   const [selectedTimeFrame, setSelectedTimeFrame] = useState('month');
-  const [selectedTab, setSelectedTab] = useState('overview');
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock admin data
-  const adminStats = {
-    totalUsers: 2847,
-    totalProviders: 156,
-    totalOrders: 1923,
-    totalRevenue: 486750,
-    monthlyGrowth: {
-      users: 12.5,
-      providers: 8.3,
-      orders: 15.7,
-      revenue: 23.4
-    },
-    platformCommission: 68456,
-    pendingPayouts: 23890
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`/api/admin/dashboard?timeframe=${selectedTimeFrame}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setDashboardData(result.data);
+      } else {
+        throw new Error(result.error || 'Failed to load dashboard data');
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const recentActivity = [
-    {
-      id: 1,
-      type: 'user_registration',
-      user: 'أحمد محمد العلي',
-      action: 'تسجيل مستخدم جديد',
-      timestamp: '2024-01-20T14:30:00Z',
-      status: 'success'
-    },
-    {
-      id: 2,
-      type: 'provider_verification',
-      user: 'شركة الرعاية الطبية',
-      action: 'طلب توثيق مقدم خدمة',
-      timestamp: '2024-01-20T13:45:00Z',
-      status: 'pending'
-    },
-    {
-      id: 3,
-      type: 'order_completed',
-      user: 'مستشفى الملك فيصل',
-      action: 'اكتمال طلب صيانة',
-      amount: 1200,
-      timestamp: '2024-01-20T12:15:00Z',
-      status: 'success'
-    }
-  ];
+  useEffect(() => {
+    fetchDashboardData();
+  }, [selectedTimeFrame]);
 
-  const topProviders = [
-    {
-      id: 1,
-      name: 'شركة الرعاية الطبية المتقدمة',
-      rating: 4.9,
-      completedJobs: 240,
-      totalEarnings: 45800,
-      status: 'verified'
-    },
-    {
-      id: 2,
-      name: 'مؤسسة التكنولوجيا الطبية',
-      rating: 4.8,
-      completedJobs: 186,
-      totalEarnings: 32400,
-      status: 'verified'
-    },
-    {
-      id: 3,
-      name: 'شركة الصيانة الفورية',
-      rating: 4.7,
-      completedJobs: 298,
-      totalEarnings: 56700,
-      status: 'pending'
-    }
-  ];
-
-  const pendingVerifications = [
-    {
-      id: 1,
-      providerName: 'مركز الأجهزة الطبية الحديثة',
-      businessLicense: '1234567890',
-      submittedAt: '2024-01-18T10:30:00Z',
-      documents: 3,
-      status: 'pending'
-    },
-    {
-      id: 2,
-      providerName: 'شركة الحلول الطبية المبتكرة',
-      businessLicense: '0987654321',
-      submittedAt: '2024-01-17T15:20:00Z',
-      documents: 2,
-      status: 'under_review'
-    }
-  ];
-
-  const systemHealth = {
-    uptime: '99.98%',
-    responseTime: '245ms',
-    errorRate: '0.02%',
-    activeConnections: 1247
+  const formatNumber = (num: number) => {
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
   };
 
-  const getGrowthIcon = (growth: number) => {
-    return growth > 0 ? (
-      <ArrowUpRight className="h-4 w-4 text-success" />
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
+  const getTrendIcon = (trend: 'up' | 'down') => {
+    return trend === 'up' ? (
+      <ArrowUpRight className="h-4 w-4 text-green-500" />
     ) : (
-      <ArrowDownRight className="h-4 w-4 text-destructive" />
+      <ArrowDownRight className="h-4 w-4 text-red-500" />
     );
   };
 
-  const getGrowthColor = (growth: number) => {
-    return growth > 0 ? 'text-success' : 'text-destructive';
+  const getTrendColor = (trend: 'up' | 'down') => {
+    return trend === 'up' ? 'text-green-600' : 'text-red-600';
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'verified':
-      case 'success':
-        return 'bg-success text-success-foreground';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'under_review':
-        return 'bg-blue-100 text-blue-800';
-      case 'rejected':
-        return 'bg-destructive text-destructive-foreground';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      PENDING: { color: 'bg-yellow-100 text-yellow-800', icon: Clock },
+      CONFIRMED: { color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
+      PROCESSING: { color: 'bg-purple-100 text-purple-800', icon: RefreshCw },
+      SHIPPED: { color: 'bg-indigo-100 text-indigo-800', icon: TrendingUp },
+      DELIVERED: { color: 'bg-green-100 text-green-800', icon: CheckCircle },
+      CANCELLED: { color: 'bg-red-100 text-red-800', icon: XCircle },
+    };
+
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.PENDING;
+    const Icon = config.icon;
+
+    return (
+      <Badge className={`${config.color} flex items-center gap-1`}>
+        <Icon className="h-3 w-3" />
+        {status}
+      </Badge>
+    );
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'verified':
-        return 'موثق';
-      case 'pending':
-        return 'في الانتظار';
-      case 'under_review':
-        return 'قيد المراجعة';
-      case 'success':
-        return 'مكتمل';
-      case 'rejected':
-        return 'مرفوض';
-      default:
-        return status;
-    }
-  };
+  if (loading) {
+    return (
+      <Layout title="لوحة الإدارة">
+        <div className="max-w-7xl mx-auto px-4 pb-16">
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-lg">جاري تحميل البيانات...</span>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout title="لوحة الإدارة">
+        <div className="max-w-7xl mx-auto px-4 pb-16">
+          <div className="text-center py-12">
+            <XCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">خطأ في تحميل البيانات</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={fetchDashboardData} className="mx-auto">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              إعادة المحاولة
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!dashboardData) return null;
 
   return (
     <Layout title="لوحة الإدارة">
@@ -186,39 +168,43 @@ export default function AdminDashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="week">هذا الأسبوع</SelectItem>
-                  <SelectItem value="month">هذا الشهر</SelectItem>
-                  <SelectItem value="quarter">هذا الربع</SelectItem>
-                  <SelectItem value="year">هذا العام</SelectItem>
+                  <SelectItem value="day">اليوم</SelectItem>
+                  <SelectItem value="week">الأسبوع</SelectItem>
+                  <SelectItem value="month">الشهر</SelectItem>
+                  <SelectItem value="quarter">الربع</SelectItem>
+                  <SelectItem value="year">السنة</SelectItem>
                 </SelectContent>
               </Select>
-              <Button className="bg-primary hover:bg-primary/90 text-arabic">
-                <Download className="ml-2 h-4 w-4" />
+              <Button onClick={fetchDashboardData} variant="outline" size="icon" className="glass">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="glass text-arabic">
+                <Download className="h-4 w-4 mr-2" />
                 تصدير التقرير
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="glass-card border-0">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground text-arabic">إجمالي المستخدمين</p>
-                  <p className="text-3xl font-bold text-primary">{adminStats.totalUsers.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-muted-foreground text-arabic">إجمالي المستخدمين</p>
+                  <p className="text-3xl font-bold text-primary">{formatNumber(dashboardData.overview.totalUsers.value)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-4">
-                {getGrowthIcon(adminStats.monthlyGrowth.users)}
-                <span className={`text-sm font-medium ${getGrowthColor(adminStats.monthlyGrowth.users)}`}>
-                  {adminStats.monthlyGrowth.users}%
+              <div className="flex items-center mt-4 gap-2">
+                {getTrendIcon(dashboardData.overview.totalUsers.trend)}
+                <span className={`text-sm font-medium ${getTrendColor(dashboardData.overview.totalUsers.trend)}`}>
+                  {Math.abs(dashboardData.overview.totalUsers.change).toFixed(1)}%
                 </span>
-                <span className="text-sm text-muted-foreground text-arabic">من الشهر الماضي</span>
+                <span className="text-xs text-muted-foreground text-arabic">مقارنة بالفترة السابقة</span>
               </div>
             </CardContent>
           </Card>
@@ -227,19 +213,19 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground text-arabic">مقدمو الخدمات</p>
-                  <p className="text-3xl font-bold text-accent">{adminStats.totalProviders}</p>
+                  <p className="text-sm font-medium text-muted-foreground text-arabic">إجمالي الطلبات</p>
+                  <p className="text-3xl font-bold text-accent">{formatNumber(dashboardData.overview.totalOrders.value)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center">
-                  <Building className="h-6 w-6 text-accent" />
+                  <Package className="h-6 w-6 text-accent" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-4">
-                {getGrowthIcon(adminStats.monthlyGrowth.providers)}
-                <span className={`text-sm font-medium ${getGrowthColor(adminStats.monthlyGrowth.providers)}`}>
-                  {adminStats.monthlyGrowth.providers}%
+              <div className="flex items-center mt-4 gap-2">
+                {getTrendIcon(dashboardData.overview.totalOrders.trend)}
+                <span className={`text-sm font-medium ${getTrendColor(dashboardData.overview.totalOrders.trend)}`}>
+                  {Math.abs(dashboardData.overview.totalOrders.change).toFixed(1)}%
                 </span>
-                <span className="text-sm text-muted-foreground text-arabic">من الشهر الماضي</span>
+                <span className="text-xs text-muted-foreground text-arabic">مقارنة بالفترة السابقة</span>
               </div>
             </CardContent>
           </Card>
@@ -248,19 +234,19 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground text-arabic">إجمالي الطلبات</p>
-                  <p className="text-3xl font-bold text-success">{adminStats.totalOrders.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-muted-foreground text-arabic">إجمالي الإيرادات</p>
+                  <p className="text-3xl font-bold text-success">{formatCurrency(dashboardData.overview.totalRevenue.value)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
-                  <Package className="h-6 w-6 text-success" />
+                  <DollarSign className="h-6 w-6 text-success" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-4">
-                {getGrowthIcon(adminStats.monthlyGrowth.orders)}
-                <span className={`text-sm font-medium ${getGrowthColor(adminStats.monthlyGrowth.orders)}`}>
-                  {adminStats.monthlyGrowth.orders}%
+              <div className="flex items-center mt-4 gap-2">
+                {getTrendIcon(dashboardData.overview.totalRevenue.trend)}
+                <span className={`text-sm font-medium ${getTrendColor(dashboardData.overview.totalRevenue.trend)}`}>
+                  {Math.abs(dashboardData.overview.totalRevenue.change).toFixed(1)}%
                 </span>
-                <span className="text-sm text-muted-foreground text-arabic">من الشهر الماضي</span>
+                <span className="text-xs text-muted-foreground text-arabic">مقارنة بالفترة السابقة</span>
               </div>
             </CardContent>
           </Card>
@@ -269,67 +255,54 @@ export default function AdminDashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground text-arabic">إجمالي الإيرادات</p>
-                  <p className="text-3xl font-bold text-primary">{adminStats.totalRevenue.toLocaleString()} ريال</p>
+                  <p className="text-sm font-medium text-muted-foreground text-arabic">إجمالي المنتجات</p>
+                  <p className="text-3xl font-bold text-primary">{formatNumber(dashboardData.overview.totalProducts.value)}</p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <DollarSign className="h-6 w-6 text-primary" />
+                  <Package className="h-6 w-6 text-primary" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 mt-4">
-                {getGrowthIcon(adminStats.monthlyGrowth.revenue)}
-                <span className={`text-sm font-medium ${getGrowthColor(adminStats.monthlyGrowth.revenue)}`}>
-                  {adminStats.monthlyGrowth.revenue}%
+              <div className="flex items-center mt-4 gap-2">
+                {getTrendIcon(dashboardData.overview.totalProducts.trend)}
+                <span className={`text-sm font-medium ${getTrendColor(dashboardData.overview.totalProducts.trend)}`}>
+                  {Math.abs(dashboardData.overview.totalProducts.change).toFixed(1)}%
                 </span>
-                <span className="text-sm text-muted-foreground text-arabic">من الشهر الماضي</span>
+                <span className="text-xs text-muted-foreground text-arabic">مقارنة بالفترة السابقة</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Main Content Tabs */}
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
-          <div className="glass-card rounded-2xl p-2">
-            <TabsList className="grid w-full grid-cols-6 bg-transparent">
-              <TabsTrigger value="overview" className="text-arabic">نظرة عامة</TabsTrigger>
-              <TabsTrigger value="users" className="text-arabic">المستخدمون</TabsTrigger>
-              <TabsTrigger value="providers" className="text-arabic">مقدمو الخدمات</TabsTrigger>
-              <TabsTrigger value="orders" className="text-arabic">الطلبات</TabsTrigger>
-              <TabsTrigger value="finances" className="text-arabic">المالية</TabsTrigger>
-              <TabsTrigger value="system" className="text-arabic">النظام</TabsTrigger>
-            </TabsList>
-          </div>
+        <Tabs value="overview" className="space-y-6">
+          <TabsList className="glass">
+            <TabsTrigger value="overview" className="text-arabic">نظرة عامة</TabsTrigger>
+            <TabsTrigger value="orders" className="text-arabic">الطلبات</TabsTrigger>
+            <TabsTrigger value="products" className="text-arabic">المنتجات</TabsTrigger>
+            <TabsTrigger value="analytics" className="text-arabic">التحليلات</TabsTrigger>
+          </TabsList>
 
-          {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* Recent Activity */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Orders */}
               <Card className="glass-card border-0">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary text-arabic">النشاط الأخير</CardTitle>
+                  <CardTitle className="text-xl text-primary text-arabic">الطلبات الحديثة</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {recentActivity.map((activity) => (
-                      <div key={activity.id} className="flex items-start gap-3 p-3 glass rounded-lg">
-                        <div className={`w-2 h-2 rounded-full mt-2 ${
-                          activity.status === 'success' ? 'bg-success' : 
-                          activity.status === 'pending' ? 'bg-yellow-500' : 'bg-muted'
-                        }`}></div>
+                    {dashboardData.recentOrders.slice(0, 5).map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-3 rounded-lg bg-white/10">
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold text-primary text-arabic">{activity.user}</h4>
-                            <Badge className={getStatusColor(activity.status)}>
-                              {getStatusText(activity.status)}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground text-arabic mb-1">{activity.action}</p>
-                          {activity.amount && (
-                            <p className="text-sm font-semibold text-primary">{activity.amount} ريال</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(activity.timestamp).toLocaleString('ar-SA')}
-                          </p>
+                          <p className="font-medium text-arabic">{order.customer}</p>
+                          <p className="text-sm text-muted-foreground">#{order.orderNumber}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="font-semibold">{formatCurrency(order.total)}</p>
+                          <p className="text-xs text-muted-foreground">{order.itemCount} منتج</p>
+                        </div>
+                        <div className="text-right">
+                          {getStatusBadge(order.status)}
                         </div>
                       </div>
                     ))}
@@ -337,29 +310,27 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Top Providers */}
+              {/* Top Products */}
               <Card className="glass-card border-0">
                 <CardHeader>
-                  <CardTitle className="text-xl text-primary text-arabic">أفضل مقدمي الخدمات</CardTitle>
+                  <CardTitle className="text-xl text-primary text-arabic">المنتجات الأكثر مبيعاً</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {topProviders.map((provider, index) => (
-                      <div key={provider.id} className="flex items-center gap-3 p-3 glass rounded-lg">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
-                          {index + 1}
+                    {dashboardData.topProducts.slice(0, 5).map((product, index) => (
+                      <div key={product.id} className="flex items-center gap-3 p-3 rounded-lg bg-white/10">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <span className="text-sm font-bold text-primary">#{index + 1}</span>
                         </div>
                         <div className="flex-1">
-                          <div className="flex items-center justify-between mb-1">
-                            <h4 className="font-semibold text-primary text-arabic">{provider.name}</h4>
-                            <Badge className={getStatusColor(provider.status)}>
-                              {getStatusText(provider.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>تقييم: {provider.rating}</span>
-                            <span>{provider.completedJobs} مهمة</span>
-                            <span className="font-semibold text-primary">{provider.totalEarnings.toLocaleString()} ريال</span>
+                          <p className="font-medium text-arabic">{product.nameAr}</p>
+                          <p className="text-sm text-muted-foreground">{product.salesCount} مبيعة</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">{formatCurrency(product.price)}</p>
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-yellow-500">★</span>
+                            <span className="text-xs">{product.rating?.toFixed(1) || 'N/A'}</span>
                           </div>
                         </div>
                       </div>
@@ -370,101 +341,46 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
 
-          {/* Provider Verification Tab */}
-          <TabsContent value="providers" className="space-y-6">
+          <TabsContent value="orders" className="space-y-6">
             <Card className="glass-card border-0">
               <CardHeader>
-                <CardTitle className="text-xl text-primary text-arabic">طلبات التوثيق المعلقة</CardTitle>
+                <CardTitle className="text-xl text-primary text-arabic">إدارة الطلبات</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {pendingVerifications.map((verification) => (
-                    <div key={verification.id} className="glass rounded-xl p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-semibold text-primary text-arabic mb-1">{verification.providerName}</h3>
-                          <p className="text-sm text-muted-foreground mb-2">رقم السجل: {verification.businessLicense}</p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>{verification.documents} مستندات</span>
-                            <span>{new Date(verification.submittedAt).toLocaleDateString('ar-SA')}</span>
-                          </div>
-                        </div>
-                        <Badge className={getStatusColor(verification.status)}>
-                          {getStatusText(verification.status)}
-                        </Badge>
-                      </div>
-                      <div className="flex gap-3">
-                        <Button className="bg-success hover:bg-success/90 text-arabic">
-                          <CheckCircle className="ml-2 h-4 w-4" />
-                          قبول
-                        </Button>
-                        <Button variant="outline" className="glass-hover border-destructive/30 text-destructive">
-                          <XCircle className="ml-2 h-4 w-4" />
-                          رفض
-                        </Button>
-                        <Button variant="outline" className="glass-hover border-primary/30">
-                          <Eye className="ml-2 h-4 w-4" />
-                          مراجعة
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-arabic">واجهة إدارة الطلبات المفصلة ستكون متاحة قريباً</p>
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* System Health Tab */}
-          <TabsContent value="system" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card className="glass-card border-0">
-                <CardHeader>
-                  <CardTitle className="text-xl text-primary text-arabic">صحة النظام</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-arabic">معدل التشغيل</span>
-                    <span className="font-semibold text-success">{systemHealth.uptime}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-arabic">زمن الاستجابة</span>
-                    <span className="font-semibold text-primary">{systemHealth.responseTime}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-arabic">معدل الأخطاء</span>
-                    <span className="font-semibold text-success">{systemHealth.errorRate}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-arabic">الاتصالات النشطة</span>
-                    <span className="font-semibold text-accent">{systemHealth.activeConnections}</span>
-                  </div>
-                </CardContent>
-              </Card>
+          <TabsContent value="products" className="space-y-6">
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <CardTitle className="text-xl text-primary text-arabic">إدارة المنتجات</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-arabic">واجهة إدارة المنتجات المفصلة ستكون متاحة قريباً</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              <Card className="glass-card border-0">
-                <CardHeader>
-                  <CardTitle className="text-xl text-primary text-arabic">إعدادات النظام</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">
-                    <Settings className="ml-2 h-4 w-4" />
-                    إعدادات عامة
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">
-                    <Shield className="ml-2 h-4 w-4" />
-                    إعدادات الأمان
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">
-                    <Bell className="ml-2 h-4 w-4" />
-                    إعدادات الإشعارات
-                  </Button>
-                  <Button variant="outline" className="w-full justify-start glass-hover border-primary/30 text-arabic">
-                    <RefreshCw className="ml-2 h-4 w-4" />
-                    تحديث النظام
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="analytics" className="space-y-6">
+            <Card className="glass-card border-0">
+              <CardHeader>
+                <CardTitle className="text-xl text-primary text-arabic">التحليلات والتقارير</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground text-arabic">لوحة التحليلات المفصلة ستكون متاحة قريباً</p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

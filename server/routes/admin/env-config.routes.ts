@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole } from '../../middleware/auth.middleware';
 import EnvConfigService from '../../services/env-config.service';
-import { UserType } from '@prisma/client';
+
+// Define types from schema
+type UserType = 'HEALTHCARE_PROVIDER' | 'EQUIPMENT_SUPPLIER' | 'MAINTENANCE_ENGINEER' | 'CUSTOMER_SERVICE' | 'ADMIN' | 'INDIVIDUAL_CUSTOMER';
 
 const router = Router();
 
 // All routes require admin authentication
 router.use(authenticateToken);
-router.use(requireRole([UserType.ADMIN]));
+router.use(requireRole(['ADMIN'])); // Use string literal instead of enum
 
 /**
  * GET /api/admin/env-config

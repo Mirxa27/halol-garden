@@ -3,8 +3,12 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../config/database';
 import { SessionManager, CacheService, CacheKeys, CacheTTL } from '../config/redis';
 import { sendEmail } from './email.service';
-import { UserType, UserStatus, VerificationStatus } from '@prisma/client';
 import crypto from 'crypto';
+
+// Define types from schema
+type UserType = 'HEALTHCARE_PROVIDER' | 'EQUIPMENT_SUPPLIER' | 'MAINTENANCE_ENGINEER' | 'CUSTOMER_SERVICE' | 'ADMIN' | 'INDIVIDUAL_CUSTOMER';
+type UserStatus = 'PENDING_VERIFICATION' | 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+type VerificationStatus = 'UNVERIFIED' | 'EMAIL_VERIFIED' | 'DOCUMENTS_VERIFIED' | 'FULLY_VERIFIED';
 
 interface TokenPayload {
   userId: string;
@@ -30,8 +34,8 @@ interface LoginData {
 }
 
 export class AuthService {
-  private static readonly JWT_SECRET = process.env.JWT_SECRET || 'secret';
-  private static readonly JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-secret';
+  private static readonly JWT_SECRET = process.env['JWT_SECRET'] || 'secret';
+  private static readonly JWT_REFRESH_SECRET = process.env['JWT_REFRESH_SECRET'] || 'refresh-secret';
   private static readonly JWT_EXPIRES_IN = '1h';
   private static readonly REFRESH_EXPIRES_IN = '30d';
 
@@ -52,7 +56,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(data.password, 12);
 
     // Create user with transaction
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx: any) => {
       // Create base user
       const newUser = await tx.user.create({
         data: {

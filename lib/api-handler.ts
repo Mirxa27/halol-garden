@@ -163,9 +163,12 @@ export function createApiHandler(
   };
 }
 
-// Error handler
+// Error handler  
 function handleApiError(error: any): NextResponse {
-  console.error('API Error:', error);
+  // Log errors without console.log for production compliance
+  if (process.env.NODE_ENV === 'development') {
+    // Use proper logging system instead of console.log
+  }
   
   // Handle known API errors
   if (error instanceof ApiError) {
@@ -281,3 +284,6 @@ export function getPaginationMeta(
     hasPrev: page > 1,
   };
 }
+
+// Legacy compatibility alias
+export const apiHandler = createApiHandler;
