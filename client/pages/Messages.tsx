@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useWebSocket } from "@/lib/websocket";
 import { 
   MessageCircle, 
   Send, 
@@ -57,7 +58,70 @@ export default function Messages() {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // WebSocket integration
+  const { 
+    connect, 
+    disconnect, 
+    joinChat, 
+    leaveChat, 
+    sendMessage: sendSocketMessage, 
+    sendTypingIndicator,
+    on, 
+    off, 
+    isConnected 
+  } = useWebSocket();
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    connect().catch(() => {
+      // Handle connection error
+    });
+
+    // Set up event listeners
+    on('newMessage', (message: any) => {
+      // Update messages state with new message
+      setMessages(prev => [...prev, message]);
+    });
+
+    on('userJoined', (data: any) => {
+      setOnlineUsers(prev => new Set([...prev, data.userId]));
+    });
+
+    on('userLeft', (data: any) => {
+      setOnlineUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(data.userId);
+        return newSet;
+      });
+    });
+
+    on('userTyping', (data: any) => {
+      // Handle typing indicators
+      setIsTyping(data.isTyping);
+    });
+
+    return () => {
+      disconnect();
+    };
+  }, []);
+
+  // Join/leave chats when conversation changes
+  useEffect(() => {
+    if (selectedConversation) {
+      joinChat(selectedConversation);
+    }
+    
+    return () => {
+      if (selectedConversation) {
+        leaveChat(selectedConversation);
+      }
+    };
+  }, [selectedConversation]);
 
   // Mock conversations data
   const conversations: Conversation[] = [
@@ -196,10 +260,17 @@ export default function Messages() {
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !selectedConversation) return;
     
     try {
-      // Real message sending implementation
+      // Send via WebSocket for real-time delivery
+      sendSocketMessage({
+        sessionId: selectedConversation,
+        content: newMessage.trim(),
+        type: 'TEXT',
+      });
+      
+      // Also send via API for persistence (fallback)
       const response = await fetch('/api/messages/send', {
         method: 'POST',
         headers: {
@@ -216,19 +287,27 @@ export default function Messages() {
         throw new Error('Failed to send message');
       }
 
-      const result = await response.json();
-      
-      // Add message to local state for immediate UI update
-      setMessages(prev => [...prev, result.message]);
       setNewMessage('');
       
-      // Emit message via WebSocket for real-time delivery
-      if (window.socketClient) {
-        window.socketClient.emit('sendMessage', result.message);
-      }
     } catch (error) {
       // Handle error appropriately
       alert('Failed to send message. Please try again.');
+    }
+  };
+
+  // Handle typing indicators
+  const handleTyping = (value: string) => {
+    setNewMessage(value);
+    
+    if (selectedConversation) {
+      // Send typing indicator
+      if (value.length > 0 && !isTyping) {
+        sendTypingIndicator(selectedConversation, true);
+        setIsTyping(true);
+      } else if (value.length === 0 && isTyping) {
+        sendTypingIndicator(selectedConversation, false);
+        setIsTyping(false);
+      }
     }
   };
 
@@ -496,7 +575,7 @@ export default function Messages() {
                       <Input
                         placeholder="اكتب رسالتك..."
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
+                        onChange={(e) => handleTyping(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                         className="glass text-arabic"
                         dir="rtl"

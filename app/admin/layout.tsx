@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { auth } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 
@@ -15,7 +15,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   // Check authentication and admin role
-  const session = await auth();
+  const session = await getServerSession();
   
   // TODO: Check for admin role when auth is properly configured
   if (!session) {

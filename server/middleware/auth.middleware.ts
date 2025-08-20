@@ -2,7 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../config/database';
 import { CacheService, CacheKeys, CacheTTL } from '../config/redis';
-import { UserType } from '@prisma/client';
+
+// Define types from schema
+type UserType = 'HEALTHCARE_PROVIDER' | 'EQUIPMENT_SUPPLIER' | 'MAINTENANCE_ENGINEER' | 'CUSTOMER_SERVICE' | 'ADMIN' | 'INDIVIDUAL_CUSTOMER';
 
 // Extend Express Request interface
 declare global {
@@ -18,7 +20,7 @@ declare global {
   }
 }
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = process.env['JWT_SECRET'] || 'secret';
 
 /**
  * Verify JWT token

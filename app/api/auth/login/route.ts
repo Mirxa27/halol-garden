@@ -15,6 +15,8 @@ const loginSchema = z.object({
 function generateTokens(userId: string, userType: string) {
   const accessTokenExpiry = process.env['JWT_ACCESS_EXPIRY'] || '15m';
   const refreshTokenExpiry = process.env['JWT_REFRESH_EXPIRY'] || '7d';
+  const jwtSecret = process.env['JWT_SECRET'] || 'fallback-secret-change-in-production';
+  const jwtRefreshSecret = process.env['JWT_REFRESH_SECRET'] || 'fallback-refresh-secret-change-in-production';
   
   const accessToken = jwt.sign(
     { 
@@ -22,7 +24,7 @@ function generateTokens(userId: string, userType: string) {
       userType,
       type: 'access'
     },
-    process.env['JWT_SECRET']!,
+    jwtSecret,
     { expiresIn: accessTokenExpiry }
   );
 
@@ -32,7 +34,7 @@ function generateTokens(userId: string, userType: string) {
       userType,
       type: 'refresh'
     },
-    process.env['JWT_REFRESH_SECRET']!,
+    jwtRefreshSecret,
     { expiresIn: refreshTokenExpiry }
   );
 
