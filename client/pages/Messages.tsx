@@ -195,12 +195,41 @@ export default function Messages() {
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!newMessage.trim()) return;
     
-    // Here you would implement the actual message sending logic
-    console.log('Sending message:', newMessage);
-    setNewMessage('');
+    try {
+      // Real message sending implementation
+      const response = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationId: selectedConversation,
+          content: newMessage.trim(),
+          type: 'TEXT',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send message');
+      }
+
+      const result = await response.json();
+      
+      // Add message to local state for immediate UI update
+      setMessages(prev => [...prev, result.message]);
+      setNewMessage('');
+      
+      // Emit message via WebSocket for real-time delivery
+      if (window.socketClient) {
+        window.socketClient.emit('sendMessage', result.message);
+      }
+    } catch (error) {
+      // Handle error appropriately
+      alert('Failed to send message. Please try again.');
+    }
   };
 
   const getMessageStatusIcon = (status: string) => {

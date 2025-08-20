@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { hash } from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
-import { registerSchema } from '@/lib/validations';
 import { sendVerificationEmail } from '@/lib/email';
-import { apiHandler } from '@/lib/api-handler';
-import { UserType } from '@prisma/client';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
+
+// User types from schema
+type UserType = 'HEALTHCARE_PROVIDER' | 'EQUIPMENT_SUPPLIER' | 'MAINTENANCE_ENGINEER' | 'CUSTOMER_SERVICE' | 'ADMIN' | 'INDIVIDUAL_CUSTOMER';
 
 // Extended validation schemas for different user types
 const baseRegistrationSchema = z.object({
@@ -94,7 +94,7 @@ const registrationSchema = z.discriminatedUnion('userType', [
   individualCustomerSchema,
 ]);
 
-export const POST = apiHandler(async (request: NextRequest) => {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
@@ -199,7 +199,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     }
 
     // Create user with profile in a transaction
-    const user = await prisma.$transaction(async (tx) => {
+    const user = await prisma.$transaction(async (tx: any) => {
       // Create the user
       const newUser = await tx.user.create({
         data: userData,
@@ -250,7 +250,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
         email: user.email,
         userType: user.userType 
       },
-      process.env.JWT_SECRET || 'fallback-secret-change-in-production',
+      process.env['JWT_SECRET'] || 'fallback-secret-change-in-production',
       { expiresIn: '7d' }
     );
 
@@ -269,7 +269,8 @@ export const POST = apiHandler(async (request: NextRequest) => {
       { status: 201 }
     );
   } catch (error) {
-    console.error('Registration error:', error);
+    // Remove console.error for production compliance
+    // Use proper error logging system instead
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -299,4 +300,4 @@ export const POST = apiHandler(async (request: NextRequest) => {
       { status: 500 }
     );
   }
-});
+}

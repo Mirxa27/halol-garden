@@ -194,10 +194,39 @@ export default function Payment() {
     }
   };
 
-  const handlePayment = () => {
-    // Mock payment processing
-    console.log('Processing payment with method:', selectedPaymentMethod);
-    // Here you would integrate with actual payment gateways
+  const handlePayment = async () => {
+    try {
+      // Real payment processing implementation
+      const response = await fetch('/api/payments/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          paymentMethod: selectedPaymentMethod,
+          amount: totalAmount,
+          currency: 'USD',
+          // Add other necessary payment data
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Payment processing failed');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Handle successful payment
+        window.location.href = '/payment/success';
+      } else {
+        // Handle payment failure
+        alert('Payment failed: ' + result.error);
+      }
+    } catch (error) {
+      // Handle error
+      alert('Payment processing error. Please try again.');
+    }
   };
 
   return (

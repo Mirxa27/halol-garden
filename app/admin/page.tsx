@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AdminStats } from '@/components/admin/AdminStats';
 import { RecentOrders } from '@/components/admin/RecentOrders';
 import { TopProducts } from '@/components/admin/TopProducts';
 import { RevenueChart } from '@/components/admin/RevenueChart';

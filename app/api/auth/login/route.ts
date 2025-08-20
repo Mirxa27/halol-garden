@@ -13,8 +13,8 @@ const loginSchema = z.object({
 
 // JWT token generation
 function generateTokens(userId: string, userType: string) {
-  const accessTokenExpiry = process.env.JWT_ACCESS_EXPIRY || '15m';
-  const refreshTokenExpiry = process.env.JWT_REFRESH_EXPIRY || '7d';
+  const accessTokenExpiry = process.env['JWT_ACCESS_EXPIRY'] || '15m';
+  const refreshTokenExpiry = process.env['JWT_REFRESH_EXPIRY'] || '7d';
   
   const accessToken = jwt.sign(
     { 
@@ -22,7 +22,7 @@ function generateTokens(userId: string, userType: string) {
       userType,
       type: 'access'
     },
-    process.env.JWT_SECRET!,
+    process.env['JWT_SECRET']!,
     { expiresIn: accessTokenExpiry }
   );
 
@@ -32,7 +32,7 @@ function generateTokens(userId: string, userType: string) {
       userType,
       type: 'refresh'
     },
-    process.env.JWT_REFRESH_SECRET!,
+    process.env['JWT_REFRESH_SECRET']!,
     { expiresIn: refreshTokenExpiry }
   );
 
