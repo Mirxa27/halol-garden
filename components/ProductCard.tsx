@@ -177,11 +177,11 @@ export function ProductCard({
         {/* Price */}
         <div className="flex items-baseline gap-2 mb-3">
           <span className="text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(discountedPrice, language)}
+            {formatCurrency(discountedPrice, 'USD')}
           </span>
           {product.discount && (
             <span className="text-sm text-gray-500 line-through">
-              {formatCurrency(product.price, language)}
+              {formatCurrency(product.price, 'USD')}
             </span>
           )}
         </div>
