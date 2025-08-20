@@ -2,7 +2,7 @@
   "version": 2,
   "name": "medical-devices-marketplace",
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:with-prisma",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "outputDirectory": ".next",

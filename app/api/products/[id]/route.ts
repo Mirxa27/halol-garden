@@ -27,7 +27,7 @@ const updateProductSchema = z.object({
 });
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -107,7 +107,7 @@ export async function GET(
 
     // Calculate average rating
     const avgRating = product.reviews.length > 0
-      ? product.reviews.reduce((sum, review) => sum + review.rating, 0) / product.reviews.length
+      ? product.reviews.reduce((sum: number, review: any) => sum + review.rating, 0) / product.reviews.length
       : 0;
 
     // Format response
@@ -161,8 +161,8 @@ export async function GET(
         sales: product.salesDetails?.inventory,
         rental: {
           total: product.rentalDetails?.rentalUnits.length || 0,
-          available: product.rentalDetails?.rentalUnits.filter(unit => unit.status === 'AVAILABLE').length || 0,
-          units: product.rentalDetails?.rentalUnits.map(unit => ({
+          available: product.rentalDetails?.rentalUnits.filter((unit: any) => unit.status === 'AVAILABLE').length || 0,
+          units: product.rentalDetails?.rentalUnits.map((unit: any) => ({
             id: unit.id,
             serialNumber: unit.serialNumber,
             condition: unit.condition,
@@ -171,7 +171,7 @@ export async function GET(
           })) || [],
         },
       },
-      reviews: product.reviews.map(review => ({
+      reviews: product.reviews.map((review: any) => ({
         id: review.id,
         rating: review.rating,
         title: review.title,
