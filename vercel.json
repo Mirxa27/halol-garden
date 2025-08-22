@@ -187,6 +187,5 @@
   ],
   "regions": ["iad1", "sfo1", "lhr1"],
   "trailingSlash": false,
-  "cleanUrls": true,
-  "ignoreBuildErrors": false
+  "cleanUrls": true
 }
