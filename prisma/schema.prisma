@@ -78,6 +78,7 @@ model User {
   supportTickets     SupportTicket[]
   verificationTokens VerificationToken[]
   passwordResets     PasswordReset[]
+  uploadedFiles      UploadedFile[]
   
   @@index([email])
   @@index([userType])
@@ -208,6 +209,35 @@ model IndividualCustomer {
   updatedAt    DateTime  @updatedAt
 }
 
+// ==================== FILE UPLOADS ====================
+
+model UploadedFile {
+  id           String   @id @default(cuid())
+  fileName     String
+  originalName String
+  mimeType     String
+  size         Int
+  path         String
+  url          String?
+  
+  uploadedBy   String?
+  userId       String?
+  
+  // Relations
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Metadata
+  metadata     Json?    // Additional metadata like dimensions for images
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([fileName])
+  @@index([userId])
+  @@index([productId])
+}
+
 // ==================== PRODUCT MANAGEMENT ====================
 
 enum ProductCategory {
@@ -295,6 +325,7 @@ model Product {
   maintenanceHistory MaintenanceRequest[]
   priceHistory      PriceHistory[]
   inventory         InventoryLog[]
+  uploadedFiles     UploadedFile[]
   
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
