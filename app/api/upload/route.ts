@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink, stat } from 'fs/promises';
 import { join } from 'path';
 import { z } from 'zod';
+import { prisma } from '@/lib/prisma';
 
 // File validation schema
 const fileUploadSchema = z.object({
@@ -81,36 +82,52 @@ export async function POST(request: NextRequest) {
     // Generate public URL
     const fileUrl = `/uploads/${category}/${uniqueFileName}`;
 
-    // Save file metadata to database (optional)
+    // Save file metadata to database
     try {
-      // TODO: Save file metadata to database when needed
-      // await prisma.uploadedFile.create({
-      //   data: {
-      //     originalName: file.name,
-      //     fileName: uniqueFileName,
-      //     filePath: fileUrl,
-      //     fileSize: file.size,
-      //     fileType: file.type,
-      //     category,
-      //     uploadedBy: userId, // from session
-      //   },
-      // });
-    } catch (dbError) {
-      // Continue even if database save fails
-    }
+      const uploadedFile = await prisma.uploadedFile.create({
+        data: {
+          fileName,
+          originalName: file.name,
+          mimeType: file.type,
+          size: file.size,
+          path: filePath,
+          url: `/uploads/${fileName}`,
+          uploadedBy: request.headers.get('x-user-id') || undefined,
+          userId: request.headers.get('x-user-id') || undefined,
+          productId: productId || undefined,
+          metadata: {
+            uploadedAt: new Date().toISOString(),
+            source: 'api',
+          },
+        },
+      });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        fileName: uniqueFileName,
-        originalName: file.name,
-        fileUrl,
-        fileSize: file.size,
-        fileType: file.type,
-        category,
-        uploadedAt: new Date().toISOString(),
-      },
-    });
+      return NextResponse.json({
+        success: true,
+        file: {
+          id: uploadedFile.id,
+          fileName: uploadedFile.fileName,
+          originalName: uploadedFile.originalName,
+          size: uploadedFile.size,
+          type: uploadedFile.mimeType,
+          url: uploadedFile.url,
+        },
+      });
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      // File was uploaded successfully, return success even if DB save failed
+      return NextResponse.json({
+        success: true,
+        file: {
+          fileName,
+          originalName: file.name,
+          size: file.size,
+          type: file.type,
+          url: `/uploads/${fileName}`,
+        },
+        warning: 'File uploaded but metadata not saved to database',
+      });
+    }
 
   } catch (error) {
     if (error instanceof Error) {
@@ -140,8 +157,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const fileName = searchParams.get('fileName');
-    const category = searchParams.get('category');
+    const fileName = searchParams.get('file');
 
     if (!fileName) {
       return NextResponse.json(
@@ -150,36 +166,52 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Implement file metadata retrieval from database
-    // For now, just return basic info if file exists
+    // Try to get file metadata from database first
+    const fileRecord = await prisma.uploadedFile.findFirst({
+      where: { fileName },
+    });
+
+    if (fileRecord) {
+      return NextResponse.json({
+        success: true,
+        file: {
+          id: fileRecord.id,
+          fileName: fileRecord.fileName,
+          originalName: fileRecord.originalName,
+          size: fileRecord.size,
+          type: fileRecord.mimeType,
+          url: fileRecord.url,
+          uploadedAt: fileRecord.createdAt,
+          uploadedBy: fileRecord.uploadedBy,
+        },
+      });
+    }
+
+    // Fallback to checking if file exists on disk
     const filePath = join(
-      process.cwd(), 
-      'public', 
-      'uploads', 
-      category || 'document', 
+      process.cwd(),
+      'public',
+      'uploads',
       fileName
     );
 
     try {
-      const fs = require('fs').promises;
-      const stats = await fs.stat(filePath);
-      
+      const stats = await stat(filePath);
       return NextResponse.json({
         success: true,
-        data: {
+        file: {
           fileName,
-          fileSize: stats.size,
-          createdAt: stats.birthtime,
-          modifiedAt: stats.mtime,
+          size: stats.size,
+          url: `/uploads/${fileName}`,
+          lastModified: stats.mtime,
         },
       });
-    } catch (fileError) {
+    } catch {
       return NextResponse.json(
         { success: false, error: 'File not found' },
         { status: 404 }
       );
     }
-
   } catch (error) {
     return NextResponse.json(
       { success: false, error: 'Failed to retrieve file information' },
@@ -192,8 +224,7 @@ export async function GET(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const fileName = searchParams.get('fileName');
-    const category = searchParams.get('category');
+    const fileName = searchParams.get('file');
 
     if (!fileName) {
       return NextResponse.json(
@@ -202,37 +233,64 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // TODO: Check user permissions to delete this file
+    // Check user permissions
+    const userId = request.headers.get('x-user-id');
+    if (userId) {
+      const fileRecord = await prisma.uploadedFile.findFirst({
+        where: { fileName },
+      });
+
+      if (fileRecord && fileRecord.userId !== userId) {
+        // Check if user is admin
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { userType: true },
+        });
+
+        if (user?.userType !== 'ADMIN') {
+          return NextResponse.json(
+            { success: false, error: 'Unauthorized to delete this file' },
+            { status: 403 }
+          );
+        }
+      }
+    }
 
     const filePath = join(
-      process.cwd(), 
-      'public', 
-      'uploads', 
-      category || 'document', 
+      process.cwd(),
+      'public',
+      'uploads',
       fileName
     );
 
     try {
-      const fs = require('fs').promises;
-      await fs.unlink(filePath);
+      await unlink(filePath);
       
-      // TODO: Remove from database
-      // await prisma.uploadedFile.delete({
-      //   where: { fileName },
-      // });
+      // Remove from database
+      await prisma.uploadedFile.deleteMany({
+        where: { fileName },
+      });
 
       return NextResponse.json({
         success: true,
         message: 'File deleted successfully',
       });
-    } catch (fileError) {
-      return NextResponse.json(
-        { success: false, error: 'File not found or already deleted' },
-        { status: 404 }
-      );
-    }
+    } catch (error) {
+      if ((error as any).code === 'ENOENT') {
+        // File doesn't exist on disk, try to clean up database
+        await prisma.uploadedFile.deleteMany({
+          where: { fileName },
+        });
 
+        return NextResponse.json(
+          { success: false, error: 'File not found' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
   } catch (error) {
+    console.error('Delete error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to delete file' },
       { status: 500 }

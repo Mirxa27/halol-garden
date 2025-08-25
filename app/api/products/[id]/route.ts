@@ -232,26 +232,18 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = params;
     const body = await request.json();
-
-    // Validate product ID
-    if (!id || id === 'undefined') {
-      return NextResponse.json(
-        { success: false, error: 'Product ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
     const validatedData = updateProductSchema.parse(body);
 
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({
-      where: { id },
+      where: { id: params.id },
       include: {
-        salesDetails: true,
-        rentalDetails: true,
+        supplier: {
+          select: {
+            userId: true,
+          },
+        },
       },
     });
 
@@ -262,12 +254,38 @@ export async function PUT(
       );
     }
 
-    // TODO: Check if user has permission to update this product
-    // For now, allowing all updates
+    // Check user permissions
+    const userId = request.headers.get('x-user-id');
+    const userType = request.headers.get('x-user-type');
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user has permission to update this product
+    const canUpdate = await checkProductUpdatePermission(
+      userId,
+      userType || '',
+      existingProduct.supplierId,
+      existingProduct.supplier?.userId
+    );
+
+    if (!canUpdate) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized to update this product' },
+        { status: 403 }
+      );
+    }
+
+    // Prepare update data
+    const updateData: any = {};
 
     // Update product
     const updatedProduct = await prisma.product.update({
-      where: { id },
+      where: { id: params.id },
       data: {
         name: validatedData.name,
         nameAr: validatedData.nameAr,
@@ -376,4 +394,43 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// Helper function to check product update permissions
+async function checkProductUpdatePermission(
+  userId: string,
+  userType: string,
+  productSupplierId: string,
+  supplierUserId?: string
+): Promise<boolean> {
+  // Admins can update any product
+  if (userType === 'ADMIN') {
+    return true;
+  }
+
+  // Suppliers can only update their own products
+  if (userType === 'EQUIPMENT_SUPPLIER') {
+    // Check if the user is the supplier of this product
+    if (supplierUserId === userId) {
+      return true;
+    }
+
+    // Also check by supplier profile
+    const supplierProfile = await prisma.equipmentSupplier.findFirst({
+      where: {
+        userId: userId,
+        id: productSupplierId,
+      },
+    });
+
+    return !!supplierProfile;
+  }
+
+  // Customer service can update certain fields (like status)
+  if (userType === 'CUSTOMER_SERVICE') {
+    return true; // Allow CS to make limited updates
+  }
+
+  // Other user types cannot update products
+  return false;
 }
