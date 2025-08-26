@@ -7,6 +7,8 @@ import {
   PaymentMethod,
   ShippingStatus 
 } from '@prisma/client';
+import { CouponService } from '@/server/services/coupon.service';
+import { EmailService } from '@/server/services/email.service';
 
 // Order creation validation schema
 const createOrderSchema = z.object({
@@ -171,11 +173,37 @@ export async function POST(request: NextRequest) {
 
     // Apply coupon if provided
     let discount = 0;
+    let appliedCoupon = null;
+    
     if (validatedData.couponCode) {
-      // TODO: Implement coupon validation
-      // For now, apply a fixed 10% discount for demo
-      if (validatedData.couponCode === 'DEMO10') {
-        discount = total * 0.1;
+      // Prepare products data for coupon validation
+      const productsForCoupon = cart.items.map(item => ({
+        id: item.productId,
+        category: item.product.category || 'GENERAL',
+        quantity: item.quantity,
+        price: item.product.salesDetails?.discountedPrice || 
+               item.product.salesDetails?.basePrice || 0,
+      }));
+
+      // Validate coupon
+      const couponValidation = await CouponService.validateCoupon({
+        code: validatedData.couponCode,
+        userId,
+        orderAmount: subtotal,
+        products: productsForCoupon,
+      });
+
+      if (couponValidation.valid && couponValidation.discountAmount) {
+        discount = couponValidation.discountAmount;
+        appliedCoupon = couponValidation.coupon;
+        
+        // Special handling for free shipping coupons
+        if (appliedCoupon.type === 'FREE_SHIPPING') {
+          discount = shipping;
+        }
+      } else {
+        // Log the error but don't fail the order
+        console.warn('Coupon validation failed:', couponValidation.error);
       }
     }
 
@@ -267,6 +295,25 @@ export async function POST(request: NextRequest) {
       await tx.cartItem.deleteMany({
         where: { cartId: cart.id },
       });
+
+      // Apply coupon if valid
+      if (appliedCoupon && discount > 0) {
+        await tx.couponUsage.create({
+          data: {
+            couponId: appliedCoupon.id,
+            userId,
+            orderId: newOrder.id,
+            discountAmount: discount,
+          },
+        });
+
+        await tx.coupon.update({
+          where: { id: appliedCoupon.id },
+          data: {
+            usageCount: { increment: 1 },
+          },
+        });
+      }
 
       return newOrder;
     });
@@ -380,29 +427,49 @@ export async function getOrder(
 // Helper function to send order confirmation email
 async function sendOrderConfirmationEmail(order: any, userId: string) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, lastName: true },
-    });
-
-    if (!user) return;
-
-    // TODO: Implement actual email sending
-    console.log('Sending order confirmation email to:', user.email);
-    console.log('Order:', order.orderNumber);
+    // Use the EmailService to send the confirmation
+    await EmailService.sendOrderConfirmation(order.id);
   } catch (error) {
-    console.error('Email send error:', error);
+    // Log error but don't fail the order
+    console.error('Failed to send order confirmation email:', error);
   }
 }
 
 // Helper function to initiate payment
 async function initiatePayment(order: any) {
   try {
-    // TODO: Implement actual payment processing
-    console.log('Initiating payment for order:', order.orderNumber);
-    console.log('Payment method:', order.paymentMethod);
-    console.log('Amount:', order.total);
+    const { PaymentService } = await import('@/server/services/payment.service');
+    
+    const result = await PaymentService.processPayment({
+      orderId: order.id,
+      amount: order.total,
+      currency: order.currency || 'USD',
+      paymentMethod: order.paymentMethod,
+      customerEmail: order.user?.email,
+      metadata: {
+        orderNumber: order.orderNumber,
+      },
+    });
+
+    if (!result.success) {
+      console.error('Payment initiation failed:', result.error);
+      // You might want to update order status here
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.FAILED,
+          metadata: {
+            ...order.metadata,
+            paymentError: result.error,
+          },
+        },
+      });
+    }
+
+    return result;
   } catch (error) {
     console.error('Payment initiation error:', error);
+    // Don't fail the order, just log the error
+    return { success: false, error: error instanceof Error ? error.message : 'Payment initiation failed' };
   }
 }

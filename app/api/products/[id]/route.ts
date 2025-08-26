@@ -372,13 +372,67 @@ export async function DELETE(
       );
     }
 
-    // TODO: Check if user has permission to delete this product
-    // For now, allowing all deletions
+    // Check user permissions for deletion
+    const userId = request.headers.get('x-user-id');
+    const userType = request.headers.get('x-user-type');
+
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check deletion permissions
+    const canDelete = await checkProductDeletePermission(
+      userId,
+      userType || '',
+      product.supplierId,
+      product.supplier?.userId
+    );
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized to delete this product' },
+        { status: 403 }
+      );
+    }
+
+    // Check if product has active orders
+    const activeOrders = await prisma.orderItem.count({
+      where: {
+        productId: id,
+        order: {
+          status: {
+            in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'],
+          },
+        },
+      },
+    });
+
+    if (activeOrders > 0) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Cannot delete product with active orders. Please discontinue instead.',
+          activeOrders,
+        },
+        { status: 400 }
+      );
+    }
 
     // Soft delete by setting status to DISCONTINUED
     await prisma.product.update({
       where: { id },
-      data: { status: 'DISCONTINUED' },
+      data: { 
+        status: 'DISCONTINUED',
+        isPublished: false,
+        metadata: {
+          ...product.metadata,
+          deletedBy: userId,
+          deletedAt: new Date().toISOString(),
+        },
+      },
     });
 
     return NextResponse.json({
@@ -394,6 +448,40 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// Helper function to check product delete permissions
+async function checkProductDeletePermission(
+  userId: string,
+  userType: string,
+  productSupplierId: string,
+  supplierUserId?: string
+): Promise<boolean> {
+  // Admins can delete any product
+  if (userType === 'ADMIN') {
+    return true;
+  }
+
+  // Suppliers can only delete their own products
+  if (userType === 'EQUIPMENT_SUPPLIER') {
+    // Check if the user is the supplier of this product
+    if (supplierUserId === userId) {
+      return true;
+    }
+
+    // Also check by supplier profile
+    const supplierProfile = await prisma.equipmentSupplier.findFirst({
+      where: {
+        userId: userId,
+        id: productSupplierId,
+      },
+    });
+
+    return !!supplierProfile;
+  }
+
+  // Other user types cannot delete products
+  return false;
 }
 
 // Helper function to check product update permissions

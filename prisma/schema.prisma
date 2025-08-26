@@ -79,6 +79,7 @@ model User {
   verificationTokens VerificationToken[]
   passwordResets     PasswordReset[]
   uploadedFiles      UploadedFile[]
+  couponUsages       CouponUsage[]
   
   @@index([email])
   @@index([userType])
@@ -408,6 +409,7 @@ model Order {
   shipments       Shipment[]
   invoices        Invoice[]
   refunds         Refund[]
+  couponUsages    CouponUsage[]
   
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -515,6 +517,80 @@ model Shipment {
   @@index([orderId])
   @@index([trackingNumber])
   @@index([status])
+}
+
+// ==================== PROMOTIONS & COUPONS ====================
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+  BUY_X_GET_Y
+}
+
+enum CouponStatus {
+  ACTIVE
+  EXPIRED
+  DISABLED
+  USED
+}
+
+model Coupon {
+  id                String       @id @default(cuid())
+  code              String       @unique
+  description       String?
+  type              CouponType
+  value             Float        // Percentage (0-100) or fixed amount
+  minimumPurchase   Float?       // Minimum order amount required
+  maximumDiscount   Float?       // Maximum discount amount for percentage coupons
+  
+  // Usage limits
+  usageLimit        Int?         // Total number of times coupon can be used
+  usageCount        Int          @default(0)
+  usageLimitPerUser Int?         // Number of times each user can use
+  
+  // Validity
+  validFrom         DateTime     @default(now())
+  validUntil        DateTime?
+  status            CouponStatus @default(ACTIVE)
+  
+  // Restrictions
+  categories        String[]     // Applicable product categories
+  products          String[]     // Specific product IDs
+  userTypes         String[]     // Applicable user types
+  
+  // Metadata
+  createdBy         String?
+  metadata          Json?        // Additional configuration
+  
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  
+  // Relations
+  usages            CouponUsage[]
+  
+  @@index([code])
+  @@index([status])
+  @@index([validFrom, validUntil])
+}
+
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id])
+  
+  discountAmount Float
+  
+  usedAt    DateTime @default(now())
+  
+  @@unique([couponId, userId, orderId])
+  @@index([couponId])
+  @@index([userId])
+  @@index([orderId])
 }
 
 // ==================== CART & WISHLIST ====================

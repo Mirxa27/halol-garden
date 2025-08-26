@@ -35,21 +35,58 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to error reporting service in development only
+    // Log error details
+    const errorDetails = {
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString(),
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+      url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+    };
+
+    // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      // Development logging for debugging
+      console.error('Error Boundary caught an error:', errorDetails);
     }
     
     // Production error reporting
-    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-      // Send to error tracking service (Sentry, LogRocket, etc.)
-      // Example: Sentry.captureException(error, { contexts: { react: { componentStack: errorInfo.componentStack } } });
+    if (typeof window !== 'undefined') {
+      // Send to error tracking service
+      this.reportError(errorDetails);
+      
+      // Store in localStorage for debugging
+      try {
+        const errors = JSON.parse(localStorage.getItem('app_errors') || '[]');
+        errors.push(errorDetails);
+        // Keep only last 10 errors
+        if (errors.length > 10) errors.shift();
+        localStorage.setItem('app_errors', JSON.stringify(errors));
+      } catch (e) {
+        // Ignore localStorage errors
+      }
     }
 
     this.setState({
       error,
       errorInfo,
     });
+  }
+
+  private reportError = async (errorDetails: any) => {
+    try {
+      // Send to logging endpoint
+      await fetch('/api/errors', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(errorDetails),
+      });
+    } catch (e) {
+      // Silently fail - don't throw in error handler
+      console.error('Failed to report error:', e);
+    }
   }
 
   handleReset = () => {
