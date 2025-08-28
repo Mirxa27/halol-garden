@@ -2,9 +2,7 @@ import { writeFile, mkdir, unlink, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // File upload configuration
 export interface UploadConfig {

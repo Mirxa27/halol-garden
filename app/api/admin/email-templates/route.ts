@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // GET all email templates
 export const GET = withAuth(
@@ -23,8 +21,6 @@ export const GET = withAuth(
         { success: false, message: 'Failed to fetch email templates' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }

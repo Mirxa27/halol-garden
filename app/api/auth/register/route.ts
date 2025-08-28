@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, UserType } from '@prisma/client';
+import { UserType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { generateTokenPair, generateSecureToken } from '@/lib/auth/jwt';
 import { sendEmail } from '@/lib/email/service';
 import { v4 as uuidv4 } from 'uuid';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Validation schemas for different user types
 const baseUserSchema = z.object({
@@ -391,7 +390,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

@@ -1,8 +1,6 @@
 import nodemailer from 'nodemailer';
-import { PrismaClient } from '@prisma/client';
 import handlebars from 'handlebars';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Email configuration interface
 interface EmailConfig {

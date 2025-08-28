@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyAccessToken, extractTokenFromHeader } from './jwt';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 export interface AuthenticatedRequest extends NextRequest {
   user?: {
@@ -124,8 +122,6 @@ export async function withAuth(
         { success: false, message: 'Authentication failed' },
         { status: 401 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   };
 }

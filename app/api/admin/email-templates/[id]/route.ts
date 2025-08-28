@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Validation schema
 const templateSchema = z.object({
@@ -40,8 +38,6 @@ export const GET = withAuth(
         { success: false, message: 'Failed to fetch template' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }
@@ -96,8 +92,6 @@ export const PUT = withAuth(
         { success: false, message: 'Failed to update template' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }

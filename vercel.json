@@ -160,14 +160,6 @@
     {
       "path": "/api/cron/cleanup",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/backup",
-      "schedule": "0 2 * * 0"
-    },
-    {
-      "path": "/api/cron/notifications",
-      "schedule": "*/30 * * * *"
     }
   ],
   "github": {

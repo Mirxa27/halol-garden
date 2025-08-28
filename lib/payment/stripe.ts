@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
-import { PrismaClient, PaymentMethod, PaymentStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import prisma from '@/lib/prisma';
 
 // Initialize Stripe
 let stripe: Stripe | null = null;

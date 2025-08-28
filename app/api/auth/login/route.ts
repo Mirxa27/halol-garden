@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { generateTokenPair } from '@/lib/auth/jwt';
 import { v4 as uuidv4 } from 'uuid';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Validation schema
 const loginSchema = z.object({
@@ -305,7 +303,5 @@ export async function POST(request: NextRequest) {
       },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

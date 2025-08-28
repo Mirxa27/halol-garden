@@ -7,7 +7,7 @@
     "dev": "next dev",
     "dev:debug": "NODE_OPTIONS='--inspect' next dev",
     "build": "prisma generate && next build",
-    "build:full": "prisma generate && prisma db push && next build",
+    "build:full": "prisma generate && next build",
     "build:docker": "docker build -t medical-devices .",
     "start": "next start",
     "start:prod": "NODE_ENV=production next start",

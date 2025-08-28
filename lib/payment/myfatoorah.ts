@@ -1,7 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
-import { PrismaClient, PaymentMethod, PaymentStatus } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PaymentMethod, PaymentStatus } from '@prisma/client';
+import prisma from '@/lib/prisma';
 
 // MyFatoorah configuration
 interface MyFatoorahConfig {

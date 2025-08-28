@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 export const GET = withAuth(
   async (req: any) => {
@@ -44,8 +42,6 @@ export const GET = withAuth(
         { success: false, message: 'Verification failed' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }

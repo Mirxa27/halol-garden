@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
 
 // Validation schema for settings
 const settingSchema = z.object({
@@ -32,8 +30,6 @@ export const GET = withAuth(
         { success: false, message: 'Failed to fetch settings' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }
@@ -121,8 +117,6 @@ export const POST = withAuth(
         { success: false, message: 'Failed to save setting' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }
@@ -168,8 +162,6 @@ export const DELETE = withAuth(
         { success: false, message: 'Failed to delete setting' },
         { status: 500 }
       );
-    } finally {
-      await prisma.$disconnect();
     }
   },
   { requireAuth: true, allowedRoles: ['ADMIN'] }
