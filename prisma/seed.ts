@@ -83,16 +83,23 @@ async function cleanDatabase() {
 }
 
 async function createUsers() {
-  const passwordHash = await hash('Demo123!@#', 12);
+  // Create Super Admin from environment variables
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL || 'admin@medical-devices.com';
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin123!@#';
+  const superAdminFirstName = process.env.SUPER_ADMIN_FIRST_NAME || 'Super';
+  const superAdminLastName = process.env.SUPER_ADMIN_LAST_NAME || 'Administrator';
+  
+  const superAdminPasswordHash = await hash(superAdminPassword, 12);
+  const demoPasswordHash = await hash('Demo123!@#', 12);
 
-  // Admin user
+  // Super Admin user
   const admin = await prisma.user.create({
     data: {
-      email: 'admin@medicaldevices.com',
-      passwordHash,
-      firstName: 'Admin',
-      lastName: 'User',
-      phoneNumber: '+1234567890',
+      email: superAdminEmail,
+      passwordHash: superAdminPasswordHash,
+      firstName: superAdminFirstName,
+      lastName: superAdminLastName,
+      phoneNumber: '+966501234567',
       userType: 'ADMIN',
       status: 'ACTIVE',
       verificationStatus: 'FULLY_VERIFIED',
@@ -100,7 +107,20 @@ async function createUsers() {
       adminProfile: {
         create: {
           role: 'SUPER_ADMIN',
-          permissions: ['ALL'],
+          permissions: [
+            'ALL',
+            'USER_MANAGEMENT',
+            'PRODUCT_MANAGEMENT',
+            'ORDER_MANAGEMENT',
+            'PAYMENT_MANAGEMENT',
+            'SYSTEM_SETTINGS',
+            'ANALYTICS',
+            'REPORTS',
+            'AUDIT_LOGS',
+            'NOTIFICATIONS',
+            'EMAIL_TEMPLATES',
+            'BACKUP_RESTORE'
+          ],
         },
       },
     },
@@ -110,7 +130,7 @@ async function createUsers() {
   const healthcare = await prisma.user.create({
     data: {
       email: 'hospital@demo.com',
-      passwordHash,
+      passwordHash: demoPasswordHash,
       firstName: 'King',
       lastName: 'Faisal Hospital',
       phoneNumber: '+966501234567',
@@ -144,7 +164,7 @@ async function createUsers() {
   const supplier = await prisma.user.create({
     data: {
       email: 'supplier@medtech.com',
-      passwordHash,
+      passwordHash: demoPasswordHash,
       firstName: 'MedTech',
       lastName: 'Solutions',
       phoneNumber: '+971501234567',
@@ -181,7 +201,7 @@ async function createUsers() {
   const engineer = await prisma.user.create({
     data: {
       email: 'engineer@service.com',
-      passwordHash,
+      passwordHash: demoPasswordHash,
       firstName: 'Ahmed',
       lastName: 'Hassan',
       phoneNumber: '+201234567890',
@@ -218,7 +238,7 @@ async function createUsers() {
   const customer = await prisma.user.create({
     data: {
       email: 'customer@demo.com',
-      passwordHash,
+      passwordHash: demoPasswordHash,
       firstName: 'John',
       lastName: 'Doe',
       phoneNumber: '+1234567891',
@@ -251,7 +271,7 @@ async function createUsers() {
   const customerService = await prisma.user.create({
     data: {
       email: 'support@medicaldevices.com',
-      passwordHash,
+      passwordHash: demoPasswordHash,
       firstName: 'Sarah',
       lastName: 'Johnson',
       phoneNumber: '+1234567892',

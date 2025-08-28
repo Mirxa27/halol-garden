@@ -220,9 +220,10 @@ model UploadedFile {
   path         String
   url          String?
   
-  uploadedBy   String?
+    uploadedBy   String?
   userId       String?
-  
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   // Relations
   productId    String?
   product      Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -335,7 +336,6 @@ model Product {
   @@index([status])
   @@index([sku])
   @@index([name])
-  @@fulltext([name, description])
 }
 
 // ==================== ORDER MANAGEMENT ====================

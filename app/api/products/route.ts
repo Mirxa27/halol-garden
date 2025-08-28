@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '../../../server/config/database';
 import { z } from 'zod';
+import { ProductCondition, ProductCategory, ProductStatus } from '@prisma/client';
 
 // Validation schemas
 const productQuerySchema = z.object({
   page: z.string().optional().transform(val => parseInt(val || '1')),
   limit: z.string().optional().transform(val => parseInt(val || '12')),
-  category: z.string().optional(),
+  category: z.nativeEnum(ProductCategory).optional(),
   search: z.string().optional(),
   minPrice: z.string().optional().transform(val => parseFloat(val || '0')),
   maxPrice: z.string().optional().transform(val => parseFloat(val || '999999')),
-  condition: z.enum(['NEW', 'REFURBISHED', 'USED_EXCELLENT', 'USED_GOOD', 'USED_FAIR']).optional(),
-  availabilityType: z.enum(['SALE', 'RENT', 'BOTH']).optional(),
+  condition: z.nativeEnum(ProductCondition).optional(),
   sortBy: z.enum(['price', 'name', 'rating', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
@@ -21,31 +21,24 @@ const createProductSchema = z.object({
   nameAr: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters'),
   descriptionAr: z.string().optional(),
-  category: z.string().min(1, 'Category is required'),
+  category: z.nativeEnum(ProductCategory),
   subcategory: z.string().optional(),
-  brand: z.string().min(1, 'Brand is required'),
-  model: z.string().min(1, 'Model is required'),
-  manufacturerCountry: z.string().optional(),
-  condition: z.enum(['NEW', 'REFURBISHED', 'USED_EXCELLENT', 'USED_GOOD', 'USED_FAIR']),
-  availabilityType: z.enum(['SALE', 'RENT', 'BOTH']),
+  condition: z.nativeEnum(ProductCondition),
+  price: z.number().positive('Price must be positive'),
+  compareAtPrice: z.number().positive().optional(),
+  quantity: z.number().int().min(0).default(0),
+  weight: z.number().positive().optional(),
+  dimensions: z.object({
+    length: z.number().positive().optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional(),
+  }).optional(),
   images: z.array(z.string().url()).min(1, 'At least one image is required'),
   specifications: z.record(z.any()),
+  features: z.array(z.string()).optional(),
   certifications: z.array(z.record(z.any())).optional(),
-  warranty: z.record(z.any()).optional(),
-  dimensions: z.record(z.any()).optional(),
-  weight: z.number().positive().optional(),
   tags: z.array(z.string()).optional(),
-  // Sales product details
-  basePrice: z.number().positive().optional(),
-  discountedPrice: z.number().positive().optional(),
-  taxRate: z.number().min(0).max(100).optional(),
-  inventory: z.record(z.any()).optional(),
-  // Rental product details
-  dailyRate: z.number().positive().optional(),
-  weeklyRate: z.number().positive().optional(),
-  monthlyRate: z.number().positive().optional(),
-  securityDeposit: z.number().positive().optional(),
-  minimumRentalPeriod: z.number().positive().optional(),
+  warrantyPeriod: z.number().int().min(0).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -58,7 +51,8 @@ export async function GET(request: NextRequest) {
     
     // Build where clause
     const where: any = {
-      status: 'ACTIVE',
+      status: ProductStatus.ACTIVE,
+      isPublished: true,
     };
 
     if (validatedQuery.category) {
@@ -69,8 +63,11 @@ export async function GET(request: NextRequest) {
       where.condition = validatedQuery.condition;
     }
 
-    if (validatedQuery.availabilityType) {
-      where.availabilityType = validatedQuery.availabilityType;
+    if (validatedQuery.minPrice || validatedQuery.maxPrice) {
+      where.price = {
+        gte: validatedQuery.minPrice,
+        lte: validatedQuery.maxPrice,
+      };
     }
 
     if (validatedQuery.search) {
@@ -78,8 +75,6 @@ export async function GET(request: NextRequest) {
         { name: { contains: validatedQuery.search, mode: 'insensitive' } },
         { nameAr: { contains: validatedQuery.search, mode: 'insensitive' } },
         { description: { contains: validatedQuery.search, mode: 'insensitive' } },
-        { brand: { contains: validatedQuery.search, mode: 'insensitive' } },
-        { model: { contains: validatedQuery.search, mode: 'insensitive' } },
       ];
     }
 
@@ -100,10 +95,9 @@ export async function GET(request: NextRequest) {
             select: {
               id: true,
               companyName: true,
+              rating: true,
             },
           },
-          salesDetails: true,
-          rentalDetails: true,
           reviews: {
             select: {
               rating: true,
