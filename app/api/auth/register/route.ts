@@ -1,302 +1,393 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hash } from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
-import { sendVerificationEmail } from '@/lib/email';
+import { UserType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import jwt from 'jsonwebtoken';
+import { generateTokenPair, generateSecureToken } from '@/lib/auth/jwt';
+import { sendEmail } from '@/lib/email/service';
+import { v4 as uuidv4 } from 'uuid';
+import prisma from '@/lib/prisma';
 
-// User types from schema
-type UserType = 'HEALTHCARE_PROVIDER' | 'EQUIPMENT_SUPPLIER' | 'MAINTENANCE_ENGINEER' | 'CUSTOMER_SERVICE' | 'ADMIN' | 'INDIVIDUAL_CUSTOMER';
-
-// Extended validation schemas for different user types
-const baseRegistrationSchema = z.object({
+// Validation schemas for different user types
+const baseUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one number')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
   confirmPassword: z.string(),
   firstName: z.string().min(2, 'First name must be at least 2 characters'),
   lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-  phoneNumber: z.string().min(10, 'Phone number must be at least 10 characters').optional(),
-  userType: z.enum(['HEALTHCARE_PROVIDER', 'EQUIPMENT_SUPPLIER', 'MAINTENANCE_ENGINEER', 'INDIVIDUAL_CUSTOMER']),
-  preferredLanguage: z.enum(['en', 'ar']).default('en'),
-  termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions'),
-  privacyAccepted: z.boolean().refine(val => val === true, 'You must accept the privacy policy'),
+  phoneNumber: z.string().regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number'),
+  userType: z.nativeEnum(UserType),
+  preferredLanguage: z.enum(['en', 'ar']).optional().default('en'),
+  acceptTerms: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
 });
 
-const healthcareProviderSchema = baseRegistrationSchema.extend({
-  userType: z.literal('HEALTHCARE_PROVIDER'),
-  organizationName: z.string().min(2, 'Organization name is required'),
-  organizationType: z.string().min(2, 'Organization type is required'),
-  licenseNumber: z.string().min(1, 'License number is required'),
+const healthcareProviderSchema = baseUserSchema.extend({
+  organizationName: z.string().min(3),
+  organizationType: z.string().min(3),
+  licenseNumber: z.string().min(5),
   taxRegistrationNumber: z.string().optional(),
-  numberOfBeds: z.number().positive().optional(),
-  yearEstablished: z.number().positive().optional(),
+  numberOfBeds: z.number().int().positive().optional(),
+  yearEstablished: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   emergencyContact: z.string().optional(),
+  website: z.string().url().optional().or(z.literal('')),
   address: z.object({
-    street: z.string().min(1, 'Street address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State/Province is required'),
-    country: z.string().min(1, 'Country is required'),
-    postalCode: z.string().min(1, 'Postal code is required'),
+    street: z.string().min(3),
+    city: z.string().min(2),
+    state: z.string().min(2),
+    country: z.string().min(2),
+    postalCode: z.string().min(3)
   }),
   specializations: z.array(z.string()).optional(),
-  certifications: z.array(z.string()).optional(),
+  certifications: z.array(z.object({
+    name: z.string(),
+    issuer: z.string(),
+    year: z.number()
+  })).optional()
 });
 
-const equipmentSupplierSchema = baseRegistrationSchema.extend({
-  userType: z.literal('EQUIPMENT_SUPPLIER'),
-  companyName: z.string().min(2, 'Company name is required'),
-  businessRegistrationNumber: z.string().min(1, 'Business registration number is required'),
+const equipmentSupplierSchema = baseUserSchema.extend({
+  companyName: z.string().min(3),
+  businessRegistrationNumber: z.string().min(5),
   taxId: z.string().optional(),
-  yearEstablished: z.number().positive().optional(),
-  numberOfEmployees: z.number().positive().optional(),
+  yearEstablished: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
+  numberOfEmployees: z.number().int().positive().optional(),
+  website: z.string().url().optional().or(z.literal('')),
   address: z.object({
-    street: z.string().min(1, 'Street address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State/Province is required'),
-    country: z.string().min(1, 'Country is required'),
-    postalCode: z.string().min(1, 'Postal code is required'),
+    street: z.string().min(3),
+    city: z.string().min(2),
+    state: z.string().min(2),
+    country: z.string().min(2),
+    postalCode: z.string().min(3)
   }),
-  productCategories: z.array(z.string()).optional(),
-  certifications: z.array(z.string()).optional(),
-  brands: z.array(z.string()).optional(),
+  productCategories: z.array(z.string()),
+  certifications: z.array(z.object({
+    name: z.string(),
+    issuer: z.string(),
+    year: z.number()
+  })).optional(),
+  brands: z.array(z.string()).optional()
 });
 
-const maintenanceEngineerSchema = baseRegistrationSchema.extend({
-  userType: z.literal('MAINTENANCE_ENGINEER'),
-  certificationNumber: z.string().min(1, 'Certification number is required'),
-  experienceYears: z.number().positive('Experience years must be positive'),
+const maintenanceEngineerSchema = baseUserSchema.extend({
+  certificationNumber: z.string().min(5),
+  experienceYears: z.number().int().min(0),
   hourlyRate: z.number().positive().optional(),
-  specializations: z.array(z.string()).min(1, 'At least one specialization is required'),
-  certifications: z.array(z.string()).optional(),
-  serviceAreas: z.array(z.string()).min(1, 'At least one service area is required'),
+  specializations: z.array(z.string()),
+  certifications: z.array(z.object({
+    name: z.string(),
+    issuer: z.string(),
+    year: z.number()
+  })).optional(),
+  serviceAreas: z.array(z.string())
 });
 
-const individualCustomerSchema = baseRegistrationSchema.extend({
-  userType: z.literal('INDIVIDUAL_CUSTOMER'),
+const individualCustomerSchema = baseUserSchema.extend({
   dateOfBirth: z.string().optional(),
-  gender: z.enum(['Male', 'Female', 'Other']).optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
   address: z.object({
-    street: z.string().min(1, 'Street address is required'),
-    city: z.string().min(1, 'City is required'),
-    state: z.string().min(1, 'State/Province is required'),
-    country: z.string().min(1, 'Country is required'),
-    postalCode: z.string().min(1, 'Postal code is required'),
-  }).optional(),
+    street: z.string().min(3),
+    city: z.string().min(2),
+    state: z.string().min(2),
+    country: z.string().min(2),
+    postalCode: z.string().min(3)
+  })
 });
 
-// Combined schema that validates based on userType
-const registrationSchema = z.discriminatedUnion('userType', [
-  healthcareProviderSchema,
-  equipmentSupplierSchema,
-  maintenanceEngineerSchema,
-  individualCustomerSchema,
-]);
+function getValidationSchema(userType: UserType) {
+  switch (userType) {
+    case 'HEALTHCARE_PROVIDER':
+      return healthcareProviderSchema;
+    case 'EQUIPMENT_SUPPLIER':
+      return equipmentSupplierSchema;
+    case 'MAINTENANCE_ENGINEER':
+      return maintenanceEngineerSchema;
+    case 'INDIVIDUAL_CUSTOMER':
+      return individualCustomerSchema;
+    default:
+      return baseUserSchema;
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    // Validate request body
-    const validatedData = registrationSchema.parse(body);
-    
-    // Check password confirmation
-    if (validatedData.password !== validatedData.confirmPassword) {
+    // Validate user type first
+    if (!body.userType || !Object.values(UserType).includes(body.userType)) {
       return NextResponse.json(
-        { error: 'Passwords do not match' },
+        {
+          success: false,
+          message: 'Invalid user type'
+        },
         { status: 400 }
       );
     }
-
-    // Check if user already exists
+    
+    // Get appropriate validation schema
+    const schema = getValidationSchema(body.userType as UserType);
+    const validationResult = schema.safeParse(body);
+    
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Validation failed',
+          errors: validationResult.error.flatten().fieldErrors
+        },
+        { status: 400 }
+      );
+    }
+    
+    const data = validationResult.data;
+    
+    // Check password confirmation
+    if (data.password !== data.confirmPassword) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Passwords do not match'
+        },
+        { status: 400 }
+      );
+    }
+    
+    // Check if email already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: validatedData.email }
+      where: { email: data.email.toLowerCase() }
     });
-
+    
     if (existingUser) {
       return NextResponse.json(
-        { error: 'User with this email already exists' },
+        {
+          success: false,
+          message: 'Email already registered'
+        },
         { status: 409 }
       );
     }
-
+    
     // Hash password
-    const hashedPassword = await hash(validatedData.password, 12);
-
+    const passwordHash = await bcrypt.hash(data.password, 12);
+    
     // Prepare user data
     const userData: any = {
-      email: validatedData.email,
-      passwordHash: hashedPassword,
-      firstName: validatedData.firstName,
-      lastName: validatedData.lastName,
-      phoneNumber: validatedData.phoneNumber || '',
-      userType: validatedData.userType as UserType,
+      email: data.email.toLowerCase(),
+      passwordHash,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phoneNumber: data.phoneNumber,
+      userType: data.userType,
+      preferredLanguage: data.preferredLanguage,
       status: 'PENDING_VERIFICATION',
-      verificationStatus: 'UNVERIFIED',
-      preferredLanguage: validatedData.preferredLanguage,
+      verificationStatus: 'UNVERIFIED'
     };
-
-    // Add type-specific profile data
-    switch (validatedData.userType) {
+    
+    // Add profile data based on user type
+    switch (data.userType) {
       case 'HEALTHCARE_PROVIDER':
+        const hcData = data as z.infer<typeof healthcareProviderSchema>;
         userData.healthcareProfile = {
           create: {
-            organizationName: validatedData.organizationName,
-            organizationType: validatedData.organizationType,
-            licenseNumber: validatedData.licenseNumber,
-            taxRegistrationNumber: validatedData.taxRegistrationNumber,
-            numberOfBeds: validatedData.numberOfBeds,
-            yearEstablished: validatedData.yearEstablished,
-            emergencyContact: validatedData.emergencyContact,
-            address: validatedData.address,
-            specializations: validatedData.specializations || [],
-            certifications: validatedData.certifications || [],
-          },
+            organizationName: hcData.organizationName,
+            organizationType: hcData.organizationType,
+            licenseNumber: hcData.licenseNumber,
+            taxRegistrationNumber: hcData.taxRegistrationNumber,
+            numberOfBeds: hcData.numberOfBeds,
+            yearEstablished: hcData.yearEstablished,
+            emergencyContact: hcData.emergencyContact,
+            website: hcData.website,
+            address: hcData.address,
+            specializations: hcData.specializations || [],
+            certifications: hcData.certifications || [],
+            operatingHours: {}
+          }
         };
         break;
-
+        
       case 'EQUIPMENT_SUPPLIER':
+        const esData = data as z.infer<typeof equipmentSupplierSchema>;
         userData.supplierProfile = {
           create: {
-            companyName: validatedData.companyName,
-            businessRegistrationNumber: validatedData.businessRegistrationNumber,
-            taxId: validatedData.taxId,
-            yearEstablished: validatedData.yearEstablished,
-            numberOfEmployees: validatedData.numberOfEmployees,
-            address: validatedData.address,
-            productCategories: validatedData.productCategories || [],
-            certifications: validatedData.certifications || [],
-            brands: validatedData.brands || [],
-          },
+            companyName: esData.companyName,
+            businessRegistrationNumber: esData.businessRegistrationNumber,
+            taxId: esData.taxId,
+            yearEstablished: esData.yearEstablished,
+            numberOfEmployees: esData.numberOfEmployees,
+            website: esData.website,
+            address: esData.address,
+            productCategories: esData.productCategories,
+            certifications: esData.certifications || [],
+            brands: esData.brands || []
+          }
         };
         break;
-
+        
       case 'MAINTENANCE_ENGINEER':
+        const meData = data as z.infer<typeof maintenanceEngineerSchema>;
         userData.engineerProfile = {
           create: {
-            certificationNumber: validatedData.certificationNumber,
-            experienceYears: validatedData.experienceYears,
-            hourlyRate: validatedData.hourlyRate,
-            specializations: validatedData.specializations,
-            certifications: validatedData.certifications || [],
-            serviceAreas: validatedData.serviceAreas,
-          },
+            certificationNumber: meData.certificationNumber,
+            experienceYears: meData.experienceYears,
+            hourlyRate: meData.hourlyRate,
+            specializations: meData.specializations,
+            certifications: meData.certifications || [],
+            serviceAreas: meData.serviceAreas,
+            availability: 'AVAILABLE'
+          }
         };
         break;
-
+        
       case 'INDIVIDUAL_CUSTOMER':
-        if (validatedData.address || validatedData.dateOfBirth || validatedData.gender) {
-          userData.individualProfile = {
-            create: {
-              dateOfBirth: validatedData.dateOfBirth ? new Date(validatedData.dateOfBirth) : undefined,
-              gender: validatedData.gender,
-              address: validatedData.address || {},
-            },
-          };
-        }
+        const icData = data as z.infer<typeof individualCustomerSchema>;
+        userData.individualProfile = {
+          create: {
+            dateOfBirth: icData.dateOfBirth ? new Date(icData.dateOfBirth) : undefined,
+            gender: icData.gender,
+            address: icData.address,
+            preferences: {}
+          }
+        };
         break;
     }
-
-    // Create user with profile in a transaction
-    const user = await prisma.$transaction(async (tx: any) => {
-      // Create the user
-      const newUser = await tx.user.create({
-        data: userData,
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          userType: true,
-          preferredLanguage: true,
-        },
-      });
-
-      // Create verification token
-      const verificationToken = await tx.verificationToken.create({
-        data: {
-          userId: newUser.id,
-          token: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-          type: 'EMAIL_VERIFICATION',
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        },
-      });
-
-      // Send verification email
-      await sendVerificationEmail(newUser.email, verificationToken.token);
-
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          userId: newUser.id,
-          action: 'USER_REGISTRATION',
-          entity: 'User',
-          entityId: newUser.id,
-          newData: {
-            email: newUser.email,
-            userType: newUser.userType,
-          },
-        },
-      });
-
-      return newUser;
+    
+    // Create user with profile
+    const user = await prisma.user.create({
+      data: userData,
+      include: {
+        healthcareProfile: true,
+        supplierProfile: true,
+        engineerProfile: true,
+        individualProfile: true
+      }
     });
-
-    // Generate JWT token for immediate login (optional)
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
+    
+    // Create cart for the user
+    await prisma.cart.create({
+      data: {
+        userId: user.id
+      }
+    });
+    
+    // Generate email verification token
+    const verificationToken = generateSecureToken(32);
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    
+    await prisma.verificationToken.create({
+      data: {
+        userId: user.id,
+        token: verificationToken,
+        type: 'EMAIL_VERIFICATION',
+        expiresAt: tokenExpiry
+      }
+    });
+    
+    // Send verification email
+    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
+    await sendEmail({
+      to: user.email,
+      subject: 'Verify Your Email - Medical Devices Marketplace',
+      template: 'welcome',
+      data: {
+        firstName: user.firstName,
         email: user.email,
-        userType: user.userType 
-      },
-      process.env['JWT_SECRET'] || 'fallback-secret-change-in-production',
-      { expiresIn: '7d' }
-    );
-
-    return NextResponse.json(
+        verificationUrl
+      }
+    });
+    
+    // Create session
+    const sessionId = uuidv4();
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token: sessionId,
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+        userAgent: request.headers.get('user-agent') || undefined,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      }
+    });
+    
+    // Generate JWT tokens
+    const tokens = generateTokenPair(user, sessionId);
+    
+    // Log registration
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'USER_REGISTERED',
+        entity: 'User',
+        entityId: user.id,
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
+        userAgent: request.headers.get('user-agent') || undefined,
+        newData: { userType: user.userType, email: user.email }
+      }
+    });
+    
+    // Prepare response
+    const response = NextResponse.json(
       {
-        message: 'Registration successful! Please check your email to verify your account.',
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          userType: user.userType,
-        },
-        token, // Optional: include if you want auto-login after registration
+        success: true,
+        message: 'Registration successful. Please check your email to verify your account.',
+        data: {
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+            userType: user.userType,
+            status: user.status,
+            verificationStatus: user.verificationStatus,
+            preferredLanguage: user.preferredLanguage
+          },
+          tokens: {
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: tokens.expiresIn
+          },
+          sessionId
+        }
       },
       { status: 201 }
     );
+    
+    // Set secure HTTP-only cookies
+    const cookieOptions = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
+      path: '/'
+    };
+    
+    response.cookies.set('access_token', tokens.accessToken, {
+      ...cookieOptions,
+      maxAge: tokens.expiresIn
+    });
+    
+    response.cookies.set('refresh_token', tokens.refreshToken, {
+      ...cookieOptions,
+      maxAge: 7 * 24 * 60 * 60
+    });
+    
+    response.cookies.set('session_id', sessionId, {
+      ...cookieOptions,
+      maxAge: 24 * 60 * 60
+    });
+    
+    return response;
+    
   } catch (error) {
-    // Remove console.error for production compliance
-    // Use proper error logging system instead
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { 
-          error: 'Validation error',
-          details: error.errors.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof Error) {
-      // Check for specific database errors
-      if (error.message.includes('Unique constraint')) {
-        return NextResponse.json(
-          { error: 'User with this email already exists' },
-          { status: 409 }
-        );
-      }
-    }
-
+    console.error('Registration error:', error);
+    
     return NextResponse.json(
-      { error: 'Registration failed. Please try again later.' },
+      {
+        success: false,
+        message: 'An error occurred during registration. Please try again.',
+        error: process.env.NODE_ENV === 'development' ? error : undefined
+      },
       { status: 500 }
     );
   }

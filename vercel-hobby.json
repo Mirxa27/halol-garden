@@ -4,17 +4,28 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "regions": ["iad1"],
+  "env": {
+    "NODE_ENV": "production",
+    "NEXT_TELEMETRY_DISABLED": "1"
+  },
   "functions": {
-    "app/api/auth/[...nextauth]/route.ts": {
+    "app/api/auth/*/route.ts": {
       "maxDuration": 10
     },
     "app/api/upload/route.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 1024
     },
     "app/api/payments/*/route.ts": {
       "maxDuration": 30
     },
-    "app/api/*/route.ts": {
+    "app/api/admin/*/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/products/*/route.ts": {
+      "maxDuration": 10
+    },
+    "app/api/orders/*/route.ts": {
       "maxDuration": 10
     }
   },
@@ -64,35 +75,6 @@
           "value": "camera=(), microphone=(), geolocation=()"
         }
       ]
-    },
-    {
-      "source": "/_next/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
-    },
-    {
-      "source": "/robots.txt",
-      "destination": "/api/robots"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/cleanup",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/reports",
-      "schedule": "0 8 * * 1"
     }
   ]
 }
