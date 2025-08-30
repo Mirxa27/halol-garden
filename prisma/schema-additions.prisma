@@ -1,0 +1,113 @@
+// ==================== INVENTORY MANAGEMENT ====================
+
+model InventoryReservation {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderId     String
+  quantity    Int
+  status      String   // ACTIVE, CONFIRMED, CANCELLED, EXPIRED
+  expiresAt   DateTime
+  confirmedAt DateTime?
+  cancelledAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([productId])
+  @@index([orderId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model InventoryMovement {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  movementType  String   // PURCHASE, SALE, RETURN, ADJUSTMENT, TRANSFER, DAMAGE, RESERVATION, RELEASE
+  quantity      Int
+  referenceType String?  // ORDER, RETURN, MANUAL, etc.
+  referenceId   String?
+  metadata      Json?
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([productId])
+  @@index([movementType])
+  @@index([referenceId])
+  @@index([createdAt])
+}
+
+// ==================== NOTIFICATION PREFERENCES ====================
+
+model NotificationPreference {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  email      Boolean  @default(true)
+  sms        Boolean  @default(false)
+  push       Boolean  @default(true)
+  inApp      Boolean  @default(true)
+  
+  types      Json     // Array of enabled notification types
+  quietHours Json?    // { enabled: boolean, start: string, end: string }
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  token     String   @unique
+  platform  String   // IOS, ANDROID, WEB
+  deviceId  String?
+  isActive  Boolean  @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([token])
+  @@index([isActive])
+}
+
+model WebhookConfig {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  url       String
+  secret    String?
+  events    Json     // Array of event types to send
+  isActive  Boolean  @default(true)
+  
+  lastTriggeredAt DateTime?
+  failureCount    Int      @default(0)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([isActive])
+}
+
+// ==================== MESSAGE READ TRACKING ====================
+
+model MessageRead {
+  id        String      @id @default(cuid())
+  messageId String
+  message   ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime    @default(now())
+  
+  @@unique([messageId, userId])
+  @@index([messageId])
+  @@index([userId])
+}
