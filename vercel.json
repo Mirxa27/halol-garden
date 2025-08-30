@@ -179,10 +179,6 @@
     {
       "path": "/api/cron/reports",
       "schedule": "0 8 * * 1"
-    },
-    {
-      "path": "/api/cron/health-check",
-      "schedule": "*/5 * * * *"
     }
   ],
   "regions": ["iad1", "sfo1", "lhr1"],
