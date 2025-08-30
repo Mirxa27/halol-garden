@@ -15,7 +15,7 @@ import {
 import { ProductGallery } from '@/components/products/ProductGallery';
 import { ProductReviews } from '@/components/products/ProductReviews';
 import { RelatedProducts } from '@/components/products/RelatedProducts';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 interface ProductPageProps {
   params: { id: string };

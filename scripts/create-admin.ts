@@ -50,8 +50,7 @@ async function createAdminUser() {
     const lastName = await question('Last name: ');
     const phoneNumber = await question('Phone number: ');
     const password = await question('Password (min 8 characters): ');
-    const employeeId = await question('Employee ID: ');
-    const department = await question('Department (e.g., IT, Management): ');
+
 
     // Validate password
     if (password.length < 8) {
@@ -103,19 +102,29 @@ async function createAdminUser() {
       const adminProfile = await tx.adminProfile.create({
         data: {
           userId: user.id,
-          employeeId,
-          department,
-          accessLevel: 'SUPER_ADMIN',
-          permissions: {
-            users: ['create', 'read', 'update', 'delete'],
-            products: ['create', 'read', 'update', 'delete'],
-            orders: ['create', 'read', 'update', 'delete'],
-            settings: ['create', 'read', 'update', 'delete'],
-            analytics: ['read'],
-            system: ['manage']
-          },
-          managedRegions: ['all'],
-          managedCategories: ['all']
+          role: 'SUPER_ADMIN',
+          permissions: [
+            'users.create',
+            'users.read',
+            'users.update',
+            'users.delete',
+            'products.create',
+            'products.read',
+            'products.update',
+            'products.delete',
+            'orders.create',
+            'orders.read',
+            'orders.update',
+            'orders.delete',
+            'payments.manage',
+            'settings.manage',
+            'reports.view',
+            'reports.export',
+            'system.configure',
+            'system.maintenance',
+            'analytics.view',
+            'support.manage'
+          ]
         }
       });
 
@@ -130,9 +139,7 @@ async function createAdminUser() {
     console.log(`Name: ${result.user.firstName} ${result.user.lastName}`);
     console.log(`Type: ${result.user.userType}`);
     console.log(`Status: ${result.user.status}`);
-    console.log(`Employee ID: ${result.adminProfile.employeeId}`);
-    console.log(`Department: ${result.adminProfile.department}`);
-    console.log(`Access Level: ${result.adminProfile.accessLevel}`);
+    console.log(`Role: ${result.adminProfile.role}`);
     
     console.log('\n🔐 Login Credentials:');
     console.log('====================');

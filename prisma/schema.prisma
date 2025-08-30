@@ -1,6 +1,6 @@
 // This is your Prisma schema file,
 // Medical Devices Marketplace Database Schema
-// Version: 3.0.0
+// Version: 3.1.0
 
 generator client {
   provider = "prisma-client-js"
@@ -128,6 +128,9 @@ model EquipmentSupplier {
   certifications            Json      // Array of certifications
   brands                    Json?     // Array of brands represented
   warehouses                Json?     // Array of warehouse locations
+  deliveryCapabilities      Json?     // Delivery options/capabilities
+  returnPolicy              Json?     // Returns policy
+  warrantyTerms             Json?     // Warranty terms
   
   verified                  Boolean   @default(false)
   verifiedAt                DateTime?
@@ -222,6 +225,7 @@ model UploadedFile {
   
   uploadedBy   String?
   userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   // Relations
   productId    String?
@@ -265,57 +269,72 @@ enum ProductStatus {
   OUT_OF_STOCK
   DISCONTINUED
   SUSPENDED
+  PENDING_APPROVAL
+}
+
+enum AvailabilityType {
+  SALE
+  RENT
+  BOTH
 }
 
 model Product {
-  id                String           @id @default(cuid())
+  id                String            @id @default(cuid())
   supplierId        String
   supplier          EquipmentSupplier @relation(fields: [supplierId], references: [id])
   
   name              String
   nameAr            String
-  description       String           @db.Text
-  descriptionAr     String           @db.Text
-  sku               String           @unique
+  description       String            @db.Text
+  descriptionAr     String            @db.Text
+  sku               String            @unique
   barcode           String?
   
   category          ProductCategory
   subcategory       String?
-  condition         ProductCondition @default(NEW)
-  status            ProductStatus    @default(DRAFT)
+  brand             String?
+  model             String?
+  manufacturerCountry String?
+  condition         ProductCondition  @default(NEW)
+  status            ProductStatus     @default(DRAFT)
+  availabilityType  AvailabilityType  @default(SALE)
   
   price             Float
   compareAtPrice    Float?
   costPrice         Float?
-  currency          String           @default("USD")
+  currency          String            @default("USD")
   
-  quantity          Int              @default(0)
-  minOrderQuantity  Int              @default(1)
+  quantity          Int               @default(0)
+  minOrderQuantity  Int               @default(1)
   maxOrderQuantity  Int?
   
-  weight            Float?           // in kg
-  dimensions        Json?            // {length, width, height}
+  weight            Float?            // in kg
+  dimensions        Json?             // {length, width, height}
   
   // JSON fields
-  images            Json             // Array of image URLs
-  specifications    Json             // Technical specifications
-  features          Json?            // Key features array
-  certifications    Json?            // Certifications array
-  documents         Json?            // Product documents/manuals
-  tags              Json?            // Search tags
+  images            Json              // Array of image URLs
+  specifications    Json              // Technical specifications
+  features          Json?             // Key features array
+  certifications    Json?             // Certifications array
+  documents         Json?             // Product documents/manuals
+  tags              Json?             // Search tags
+  warranty          Json?
   
-  warrantyPeriod    Int?             // in months
-  returnPeriod      Int              @default(30) // in days
+  warrantyPeriod    Int?              // in months
+  returnPeriod      Int               @default(30) // in days
   
-  isFeatured        Boolean          @default(false)
-  isPublished       Boolean          @default(false)
+  featured          Boolean           @default(false)
+  isFeatured        Boolean           @default(false)
+  isPublished       Boolean           @default(false)
   publishedAt       DateTime?
   
-  views             Int              @default(0)
-  salesCount        Int              @default(0)
-  rating            Float            @default(0)
+  views             Int               @default(0)
+  salesCount        Int               @default(0)
+  rating            Float             @default(0)
   
   // Relations
+  salesDetails      SalesDetails?
+  rentalDetails     RentalDetails?
   orderItems        OrderItem[]
   cartItems         CartItem[]
   wishlistItems     WishlistItem[]
@@ -327,15 +346,97 @@ model Product {
   inventory         InventoryLog[]
   uploadedFiles     UploadedFile[]
   
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   
   @@index([supplierId])
   @@index([category])
   @@index([status])
   @@index([sku])
   @@index([name])
-  @@fulltext([name, description])
+
+}
+
+// Additional product detail models
+
+enum ShippingStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+model SalesDetails {
+  id               String   @id @default(cuid())
+  productId        String   @unique
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  basePrice        Float
+  discountedPrice  Float?
+  costPrice        Float?
+  minOrderQuantity Int      @default(1)
+  maxOrderQuantity Int?
+  
+  inventory        Json?
+  
+  isActive         Boolean  @default(true)
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  
+  @@index([productId])
+}
+
+enum RentalUnitStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+  RETIRED
+}
+
+model RentalDetails {
+  id                    String   @id @default(cuid())
+  productId             String   @unique
+  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  dailyRate             Float
+  weeklyRate            Float?
+  monthlyRate           Float?
+  securityDeposit       Float
+  
+  minimumRentalPeriod   Int      @default(1)
+  maximumRentalPeriod   Int?
+  
+  isAvailable          Boolean  @default(true)
+  inventory            Json?
+  rentalTerms          Json?
+  maintenanceSchedule  Json?
+  
+  rentalUnits          RentalUnit[]
+  
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  
+  @@index([productId])
+}
+
+model RentalUnit {
+  id               String            @id @default(cuid())
+  rentalDetailsId  String
+  rentalDetails    RentalDetails     @relation(fields: [rentalDetailsId], references: [id], onDelete: Cascade)
+  
+  serialNumber     String?
+  condition        Json?
+  status           RentalUnitStatus  @default(AVAILABLE)
+  location         Json?
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  
+  @@index([rentalDetailsId])
+  @@index([status])
 }
 
 // ==================== ORDER MANAGEMENT ====================
@@ -408,6 +509,7 @@ model Order {
   shipments       Shipment[]
   invoices        Invoice[]
   refunds         Refund[]
+  shippingInfo    Shipping?
   
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -515,6 +617,29 @@ model Shipment {
   @@index([orderId])
   @@index([trackingNumber])
   @@index([status])
+}
+
+model Shipping {
+  id                 String         @id @default(cuid())
+  orderId            String         @unique
+  order              Order          @relation(fields: [orderId], references: [id])
+  
+  carrier            String?
+  trackingNumber     String?
+  status             ShippingStatus @default(PENDING)
+  
+  shippingCost       Float          @default(0)
+  estimatedDelivery  DateTime?
+  actualDelivery     DateTime?
+  
+  address            Json           // Shipping address
+  notes              String?
+  
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  
+  @@index([orderId])
+  @@index([trackingNumber])
 }
 
 // ==================== CART & WISHLIST ====================
@@ -996,12 +1121,13 @@ model InventoryLog {
   productId   String
   product     Product  @relation(fields: [productId], references: [id])
   
-  type        String   // IN, OUT, ADJUSTMENT, RETURN
+  type        String   // IN, OUT, ADJUSTMENT, RETURN, SALE
   quantity    Int
-  balance     Int      // Balance after transaction
+  balance     Int?     // Balance after transaction
   
   reference   String?  // Order ID, Return ID, etc.
   reason      String?
+  metadata    Json?
   
   performedBy String?
   

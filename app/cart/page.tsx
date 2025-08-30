@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Truck, Shield, CreditCard } from 'lucide-react';
 import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 export const metadata: Metadata = {
   title: 'Shopping Cart | Medical Devices Marketplace',
