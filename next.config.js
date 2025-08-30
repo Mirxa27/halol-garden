@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -16,6 +18,8 @@ const nextConfig = {
       'medical-devices-marketplace.vercel.app',
       'res.cloudinary.com',
       'images.unsplash.com',
+      'vercel.app',
+      '*.vercel.app',
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
@@ -54,7 +58,7 @@ const nextConfig = {
     return config;
   },
   
-  // Headers
+  // Headers with updated CSP
   async headers() {
     return [
       {
@@ -83,6 +87,23 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin'
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://*.vercel.live https://*.supabase.co https://cdn.jsdelivr.net https://www.googletagmanager.com https://www.google-analytics.com https://*.pusher.com wss://*.pusher.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "img-src 'self' data: blob: https: http:",
+              "connect-src 'self' https://vercel.live https://*.vercel.live https://*.supabase.co https://api.stripe.com https://*.pusher.com wss://*.pusher.com https://*.sentry.io https://www.google-analytics.com https://*.paypal.com https://*.myfatoorah.com",
+              "frame-src 'self' https://www.youtube.com https://checkout.stripe.com https://*.paypal.com",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "upgrade-insecure-requests"
+            ].join('; ')
           },
         ],
       },
