@@ -1,0 +1,35 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="720" fill="#f3f4f6"/>
+  <rect x="40" y="40" width="1200" height="80" fill="#0070f3" rx="8"/>
+  <text x="640" y="85" font-family="Arial, sans-serif" font-size="32" fill="white" text-anchor="middle">Medical Devices Marketplace</text>
+  
+  <g transform="translate(40, 160)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 1</text>
+  </g>
+  
+  <g transform="translate(450, 160)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 2</text>
+  </g>
+  
+  <g transform="translate(860, 160)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 3</text>
+  </g>
+  
+  <g transform="translate(40, 440)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 4</text>
+  </g>
+  
+  <g transform="translate(450, 440)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 5</text>
+  </g>
+  
+  <g transform="translate(860, 440)">
+    <rect width="380" height="240" fill="#e5e7eb" rx="8"/>
+    <text x="190" y="130" font-family="Arial, sans-serif" font-size="18" fill="#6b7280" text-anchor="middle">Product 6</text>
+  </g>
+</svg>

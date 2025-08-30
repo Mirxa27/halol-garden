@@ -1,236 +1,498 @@
 import nodemailer from 'nodemailer';
-import { config } from 'dotenv';
-
-config();
+import { prisma } from '../config/database';
+import { renderEmailTemplate } from '../templates/email';
+import { logger } from '@/lib/logger';
 
 interface EmailOptions {
   to: string | string[];
   subject: string;
-  html: string;
-  text?: string;
-  from?: string;
-  attachments?: any[];
+  template: string;
+  data: any;
+  attachments?: Array<{
+    filename: string;
+    content?: Buffer;
+    path?: string;
+  }>;
 }
 
-// Create transporter
-const transporter = nodemailer.createTransporter({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.EMAIL_PORT || '587'),
-  secure: false,
+interface SMTPConfig {
+  host: string;
+  port: number;
+  secure: boolean;
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+    user: string;
+    pass: string;
+  };
+}
 
-/**
- * Send email
- */
-export async function sendEmail(options: EmailOptions): Promise<void> {
-  try {
-    const mailOptions = {
-      from: options.from || process.env.EMAIL_FROM || 'Medical Marketplace <noreply@medicalmarketplace.com>',
-      to: Array.isArray(options.to) ? options.to.join(',') : options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text || options.html.replace(/<[^>]*>/g, ''),
-      attachments: options.attachments,
+export class EmailService {
+  private static transporter: nodemailer.Transporter | null = null;
+  private static readonly FROM_EMAIL = process.env.SMTP_FROM || 'noreply@medicaldevices.com';
+  private static readonly FROM_NAME = process.env.SMTP_FROM_NAME || 'Medical Devices Marketplace';
+
+  /**
+   * Initialize email transporter
+   */
+  private static async initializeTransporter() {
+    if (this.transporter) {
+      return this.transporter;
+    }
+
+    const config: SMTPConfig = {
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER || '',
+        pass: process.env.SMTP_PASS || '',
+      },
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`Email sent to ${options.to}`);
-  } catch (error) {
-    console.error('Error sending email:', error);
-    throw new Error('Failed to send email');
-  }
-}
+    // Create transporter
+    this.transporter = nodemailer.createTransporter(config);
 
-/**
- * Send bulk emails
- */
-export async function sendBulkEmails(recipients: string[], subject: string, html: string): Promise<void> {
-  const batchSize = 50;
-  
-  for (let i = 0; i < recipients.length; i += batchSize) {
-    const batch = recipients.slice(i, i + batchSize);
-    await sendEmail({
-      to: batch,
-      subject,
-      html,
-    });
+    // Verify connection
+    try {
+      await this.transporter.verify();
+      logger.info('Email service initialized successfully');
+    } catch (error) {
+      logger.error('Email service initialization failed:', error);
+      // Fall back to console logging in development
+      if (process.env.NODE_ENV === 'development') {
+        this.transporter = {
+          sendMail: async (options: any) => {
+            console.log('📧 Email would be sent:', options);
+            return { messageId: 'dev-' + Date.now() };
+          },
+        } as any;
+      }
+    }
+
+    return this.transporter;
+  }
+
+  /**
+   * Send email
+   */
+  static async sendEmail(options: EmailOptions): Promise<boolean> {
+    try {
+      const transporter = await this.initializeTransporter();
+      
+      if (!transporter) {
+        throw new Error('Email transporter not initialized');
+      }
+
+      // Render email template
+      const { html, text } = await renderEmailTemplate(options.template, options.data);
+
+      // Prepare email options
+      const mailOptions = {
+        from: `${this.FROM_NAME} <${this.FROM_EMAIL}>`,
+        to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
+        subject: options.subject,
+        html,
+        text,
+        attachments: options.attachments,
+      };
+
+      // Send email
+      const result = await transporter.sendMail(mailOptions);
+      
+      // Log email sent
+      await this.logEmailSent({
+        to: options.to,
+        subject: options.subject,
+        template: options.template,
+        messageId: result.messageId,
+      });
+
+      return true;
+    } catch (error) {
+      logger.error('Failed to send email:', error);
+      
+      // Log email failure
+      await this.logEmailFailed({
+        to: options.to,
+        subject: options.subject,
+        template: options.template,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+
+      // Don't throw in production, just log
+      if (process.env.NODE_ENV === 'production') {
+        return false;
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * Send order confirmation email
+   */
+  static async sendOrderConfirmation(orderId: string) {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      await this.sendEmail({
+        to: order.user.email,
+        subject: `Order Confirmation - ${order.orderNumber}`,
+        template: 'order-confirmation',
+        data: {
+          user: {
+            firstName: order.user.firstName,
+            lastName: order.user.lastName,
+          },
+          order: {
+            orderNumber: order.orderNumber,
+            total: order.total,
+            items: order.items.map(item => ({
+              name: item.product.name,
+              quantity: item.quantity,
+              price: item.price,
+              total: item.total,
+            })),
+            shippingAddress: order.shippingAddress,
+            paymentMethod: order.paymentMethod,
+            createdAt: order.createdAt,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to send order confirmation:', error);
+    }
+  }
+
+  /**
+   * Send welcome email
+   */
+  static async sendWelcomeEmail(userId: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      await this.sendEmail({
+        to: user.email,
+        subject: 'Welcome to Medical Devices Marketplace',
+        template: 'welcome',
+        data: {
+          user: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            userType: user.userType,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to send welcome email:', error);
+    }
+  }
+
+  /**
+   * Send password reset email
+   */
+  static async sendPasswordResetEmail(email: string, resetToken: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        return; // Don't reveal if user exists
+      }
+
+      const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`;
+
+      await this.sendEmail({
+        to: email,
+        subject: 'Password Reset Request',
+        template: 'password-reset',
+        data: {
+          user: {
+            firstName: user.firstName,
+            lastName: user.lastName,
+          },
+          resetUrl,
+          expiresIn: '1 hour',
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to send password reset email:', error);
+    }
+  }
+
+  /**
+   * Send shipping notification
+   */
+  static async sendShippingNotification(orderId: string) {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          user: true,
+          shipping: true,
+        },
+      });
+
+      if (!order || !order.shipping) {
+        throw new Error('Order or shipping information not found');
+      }
+
+      await this.sendEmail({
+        to: order.user.email,
+        subject: `Your Order ${order.orderNumber} Has Been Shipped`,
+        template: 'shipping-notification',
+        data: {
+          user: {
+            firstName: order.user.firstName,
+            lastName: order.user.lastName,
+          },
+          order: {
+            orderNumber: order.orderNumber,
+            trackingNumber: order.shipping.trackingNumber,
+            carrier: order.shipping.carrier,
+            estimatedDelivery: order.shipping.estimatedDelivery,
+            trackingUrl: `${process.env.NEXT_PUBLIC_APP_URL}/track/${order.shipping.trackingNumber}`,
+          },
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to send shipping notification:', error);
+    }
+  }
+
+  /**
+   * Send low stock alert to supplier
+   */
+  static async sendLowStockAlert(productId: string) {
+    try {
+      const product = await prisma.product.findUnique({
+        where: { id: productId },
+        include: {
+          supplier: {
+            include: {
+              user: true,
+            },
+          },
+          salesDetails: true,
+        },
+      });
+
+      if (!product || !product.supplier) {
+        throw new Error('Product or supplier not found');
+      }
+
+      const inventory = product.salesDetails?.inventory as any;
+      const currentStock = inventory?.quantity || 0;
+
+      await this.sendEmail({
+        to: product.supplier.user.email,
+        subject: `Low Stock Alert: ${product.name}`,
+        template: 'low-stock-alert',
+        data: {
+          supplier: {
+            companyName: product.supplier.companyName,
+          },
+          product: {
+            name: product.name,
+            sku: product.sku,
+            currentStock,
+            recommendedReorder: currentStock * 3, // Suggest 3x current stock
+          },
+        },
+      });
+    } catch (error) {
+      logger.error('Failed to send low stock alert:', error);
+    }
+  }
+
+  /**
+   * Send invoice email
+   */
+  static async sendInvoice(orderId: string, invoicePdf?: Buffer) {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          user: true,
+          items: {
+            include: {
+              product: true,
+            },
+          },
+        },
+      });
+
+      if (!order) {
+        throw new Error('Order not found');
+      }
+
+      const attachments = invoicePdf ? [{
+        filename: `invoice-${order.orderNumber}.pdf`,
+        content: invoicePdf,
+      }] : undefined;
+
+      await this.sendEmail({
+        to: order.user.email,
+        subject: `Invoice for Order ${order.orderNumber}`,
+        template: 'invoice',
+        data: {
+          user: {
+            firstName: order.user.firstName,
+            lastName: order.user.lastName,
+          },
+          order: {
+            orderNumber: order.orderNumber,
+            total: order.total,
+            createdAt: order.createdAt,
+          },
+        },
+        attachments,
+      });
+    } catch (error) {
+      logger.error('Failed to send invoice:', error);
+    }
+  }
+
+  /**
+   * Send bulk email (for marketing)
+   */
+  static async sendBulkEmail(
+    recipients: string[],
+    subject: string,
+    template: string,
+    data: any
+  ) {
+    const results = [];
     
-    // Add delay to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Send in batches to avoid overwhelming the SMTP server
+    const batchSize = 50;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      
+      const batchResults = await Promise.allSettled(
+        batch.map(email => 
+          this.sendEmail({
+            to: email,
+            subject,
+            template,
+            data: {
+              ...data,
+              unsubscribeUrl: `${process.env.NEXT_PUBLIC_APP_URL}/unsubscribe?email=${email}`,
+            },
+          })
+        )
+      );
+      
+      results.push(...batchResults);
+      
+      // Add delay between batches
+      if (i + batchSize < recipients.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    
+    logger.info(`Bulk email sent: ${successful} successful, ${failed} failed`);
+    
+    return {
+      total: recipients.length,
+      successful,
+      failed,
+    };
+  }
+
+  /**
+   * Log email sent
+   */
+  private static async logEmailSent(data: {
+    to: string | string[];
+    subject: string;
+    template: string;
+    messageId: string;
+  }) {
+    try {
+      // Store in database for tracking
+      // You might want to create an EmailLog model
+      logger.info('Email sent:', {
+        to: Array.isArray(data.to) ? data.to.join(', ') : data.to,
+        subject: data.subject,
+        template: data.template,
+        messageId: data.messageId,
+      });
+    } catch (error) {
+      logger.error('Failed to log email sent:', error);
+    }
+  }
+
+  /**
+   * Log email failure
+   */
+  private static async logEmailFailed(data: {
+    to: string | string[];
+    subject: string;
+    template: string;
+    error: string;
+  }) {
+    try {
+      logger.error('Email failed:', {
+        to: Array.isArray(data.to) ? data.to.join(', ') : data.to,
+        subject: data.subject,
+        template: data.template,
+        error: data.error,
+      });
+    } catch (error) {
+      logger.error('Failed to log email failure:', error);
+    }
+  }
+
+  /**
+   * Test email configuration
+   */
+  static async testEmailConfiguration(testEmail: string): Promise<boolean> {
+    try {
+      await this.sendEmail({
+        to: testEmail,
+        subject: 'Test Email - Medical Devices Marketplace',
+        template: 'test',
+        data: {
+          timestamp: new Date().toISOString(),
+          config: {
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT,
+            from: this.FROM_EMAIL,
+          },
+        },
+      });
+      
+      return true;
+    } catch (error) {
+      logger.error('Email configuration test failed:', error);
+      return false;
+    }
   }
 }
 
-/**
- * Email templates
- */
-export const EmailTemplates = {
-  welcomeEmail: (name: string) => ({
-    subject: 'Welcome to Medical Marketplace',
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #007bff; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f4f4f4; }
-            .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Welcome to Medical Marketplace</h1>
-            </div>
-            <div class="content">
-              <h2>Hello ${name},</h2>
-              <p>Welcome to the leading medical equipment marketplace in the region!</p>
-              <p>You can now:</p>
-              <ul>
-                <li>Browse thousands of medical equipment products</li>
-                <li>Connect with verified suppliers</li>
-                <li>Request maintenance services</li>
-                <li>Manage rentals and purchases</li>
-              </ul>
-              <p>Get started by completing your profile:</p>
-              <a href="${process.env.CLIENT_URL}/profile" class="button">Complete Profile</a>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-
-  orderConfirmation: (orderNumber: string, total: number, currency: string) => ({
-    subject: `Order Confirmation - ${orderNumber}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #28a745; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f4f4f4; }
-            .order-details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
-            .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Order Confirmed!</h1>
-            </div>
-            <div class="content">
-              <h2>Thank you for your order</h2>
-              <div class="order-details">
-                <p><strong>Order Number:</strong> ${orderNumber}</p>
-                <p><strong>Total Amount:</strong> ${currency} ${total.toFixed(2)}</p>
-              </div>
-              <p>We'll send you an email when your order ships.</p>
-              <a href="${process.env.CLIENT_URL}/orders/${orderNumber}" class="button">View Order</a>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-
-  maintenanceScheduled: (requestNumber: string, scheduledDate: Date, engineerName: string) => ({
-    subject: `Maintenance Scheduled - ${requestNumber}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #17a2b8; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f4f4f4; }
-            .details { background-color: white; padding: 15px; border-radius: 5px; margin: 15px 0; }
-            .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Maintenance Scheduled</h1>
-            </div>
-            <div class="content">
-              <h2>Your maintenance request has been scheduled</h2>
-              <div class="details">
-                <p><strong>Request Number:</strong> ${requestNumber}</p>
-                <p><strong>Scheduled Date:</strong> ${scheduledDate.toLocaleDateString()}</p>
-                <p><strong>Engineer:</strong> ${engineerName}</p>
-              </div>
-              <p>The engineer will contact you before the visit.</p>
-              <a href="${process.env.CLIENT_URL}/maintenance/${requestNumber}" class="button">View Details</a>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-
-  rentalReminder: (agreementNumber: string, endDate: Date, daysRemaining: number) => ({
-    subject: `Rental Return Reminder - ${agreementNumber}`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #ffc107; color: #333; padding: 20px; text-align: center; }
-            .content { padding: 20px; background-color: #f4f4f4; }
-            .alert { background-color: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin: 15px 0; }
-            .button { display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Rental Return Reminder</h1>
-            </div>
-            <div class="content">
-              <div class="alert">
-                <p><strong>Your rental period ends in ${daysRemaining} days!</strong></p>
-                <p>Agreement Number: ${agreementNumber}</p>
-                <p>Return Date: ${endDate.toLocaleDateString()}</p>
-              </div>
-              <p>Please arrange for the equipment return or extend your rental period.</p>
-              <a href="${process.env.CLIENT_URL}/rentals/${agreementNumber}" class="button">Manage Rental</a>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `
-  }),
-};
-
-export default {
-  sendEmail,
-  sendBulkEmails,
-  EmailTemplates,
-};
+export default EmailService;
