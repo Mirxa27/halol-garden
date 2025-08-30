@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===================================
+   MOBILE-FIRST RESPONSIVE DESIGN
+   =================================== */
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -10,7 +14,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,10 +26,14 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
-    --font-inter: 'Inter', sans-serif;
-    --font-cairo: 'Cairo', sans-serif;
+    
+    /* Mobile-specific variables */
+    --mobile-nav-height: 64px;
+    --mobile-bottom-nav: 56px;
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
   }
 
   .dark {
@@ -35,7 +43,7 @@
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217.2 91.2% 59.8%;
+    --primary: 210 40% 98%;
     --primary-foreground: 222.2 47.4% 11.2%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -47,7 +55,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 224.3 76.3% 48%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
@@ -55,82 +63,376 @@
   * {
     @apply border-border;
   }
+  
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    
+    /* Prevent iOS bounce scrolling */
+    overscroll-behavior: none;
+    
+    /* Smooth scrolling on mobile */
+    -webkit-overflow-scrolling: touch;
+    
+    /* Safe area padding for notched devices */
+    padding-top: var(--safe-area-inset-top);
+    padding-bottom: var(--safe-area-inset-bottom);
+  }
+  
+  /* Ensure proper viewport on mobile */
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-size: 16px; /* Prevent zoom on input focus in iOS */
+  }
+  
+  /* Optimize touch targets for mobile */
+  button, 
+  a, 
+  input, 
+  select, 
+  textarea {
+    min-height: 44px; /* iOS recommended touch target size */
+    min-width: 44px;
+  }
+  
+  /* Prevent text selection on UI elements */
+  button, 
+  nav, 
+  header {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 }
 
-/* RTL Support */
+/* ===================================
+   RESPONSIVE UTILITIES
+   =================================== */
+
+@layer components {
+  /* Mobile-first container */
+  .container-mobile {
+    @apply w-full px-4 mx-auto;
+    @apply sm:px-6;
+    @apply lg:px-8;
+    @apply xl:max-w-7xl;
+  }
+  
+  /* Responsive text sizes */
+  .text-responsive-xs {
+    @apply text-xs sm:text-sm;
+  }
+  
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl lg:text-2xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl lg:text-3xl;
+  }
+  
+  .text-responsive-2xl {
+    @apply text-2xl sm:text-3xl lg:text-4xl;
+  }
+  
+  .text-responsive-3xl {
+    @apply text-3xl sm:text-4xl lg:text-5xl;
+  }
+  
+  /* Responsive spacing */
+  .space-responsive {
+    @apply space-y-4 sm:space-y-6 lg:space-y-8;
+  }
+  
+  .padding-responsive {
+    @apply p-4 sm:p-6 lg:p-8;
+  }
+  
+  /* Responsive grid */
+  .grid-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+  }
+  
+  /* Mobile navigation */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50;
+    @apply bg-background border-t;
+    @apply h-[var(--mobile-bottom-nav)];
+    @apply pb-[env(safe-area-inset-bottom)];
+    
+    @apply sm:hidden; /* Hide on tablets and up */
+  }
+  
+  .desktop-nav {
+    @apply hidden sm:flex;
+  }
+  
+  /* Touch-friendly buttons */
+  .btn-mobile {
+    @apply px-4 py-3 min-h-[44px];
+    @apply text-base font-medium;
+    @apply rounded-lg;
+    @apply transition-all duration-200;
+    @apply active:scale-95;
+    @apply touch-manipulation;
+  }
+  
+  /* Mobile-optimized cards */
+  .card-mobile {
+    @apply bg-card rounded-lg;
+    @apply p-4 sm:p-6;
+    @apply shadow-sm;
+    @apply transition-shadow duration-200;
+    @apply hover:shadow-md;
+  }
+  
+  /* Responsive tables */
+  .table-responsive {
+    @apply w-full overflow-x-auto;
+    @apply -mx-4 sm:mx-0;
+    @apply px-4 sm:px-0;
+  }
+  
+  .table-responsive table {
+    @apply min-w-full sm:min-w-0;
+  }
+  
+  /* Mobile-friendly forms */
+  .form-mobile input,
+  .form-mobile select,
+  .form-mobile textarea {
+    @apply w-full px-3 py-2;
+    @apply text-base; /* Prevent zoom on iOS */
+    @apply rounded-md;
+    @apply border border-input;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary;
+  }
+  
+  /* Responsive modals */
+  .modal-mobile {
+    @apply fixed inset-0 z-50;
+    @apply flex items-end sm:items-center justify-center;
+    @apply p-0 sm:p-4;
+  }
+  
+  .modal-content-mobile {
+    @apply w-full sm:max-w-lg;
+    @apply max-h-[90vh] sm:max-h-[80vh];
+    @apply overflow-y-auto;
+    @apply bg-background;
+    @apply rounded-t-2xl sm:rounded-lg;
+    @apply p-4 sm:p-6;
+  }
+  
+  /* Swipeable cards for mobile */
+  .swipeable-container {
+    @apply overflow-x-auto;
+    @apply -mx-4 px-4;
+    @apply scrollbar-hide;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .swipeable-item {
+    @apply inline-block;
+    @apply w-[280px] sm:w-[320px];
+    @apply mr-4;
+    scroll-snap-align: start;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ===================================
+   MOBILE-SPECIFIC ANIMATIONS
+   =================================== */
+
+@layer utilities {
+  /* Reduce motion for accessibility */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+  
+  /* Touch feedback */
+  .touch-feedback {
+    @apply transition-all duration-150;
+    @apply active:scale-95 active:opacity-80;
+  }
+  
+  /* Slide up animation for mobile modals */
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  /* Fade in animation */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+/* ===================================
+   RESPONSIVE BREAKPOINT HELPERS
+   =================================== */
+
+@layer utilities {
+  /* Show only on mobile */
+  .mobile-only {
+    @apply block sm:hidden;
+  }
+  
+  /* Hide on mobile */
+  .desktop-only {
+    @apply hidden sm:block;
+  }
+  
+  /* Tablet and up */
+  .tablet-up {
+    @apply hidden sm:block;
+  }
+  
+  /* Desktop and up */
+  .desktop-up {
+    @apply hidden lg:block;
+  }
+}
+
+/* ===================================
+   PRINT STYLES
+   =================================== */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    font-size: 12pt;
+  }
+  
+  a {
+    text-decoration: underline;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+}
+
+/* ===================================
+   ACCESSIBILITY IMPROVEMENTS
+   =================================== */
+
+@layer utilities {
+  /* Focus visible for keyboard navigation */
+  .focus-visible-ring {
+    @apply focus-visible:outline-none;
+    @apply focus-visible:ring-2;
+    @apply focus-visible:ring-primary;
+    @apply focus-visible:ring-offset-2;
+  }
+  
+  /* Skip to content link */
+  .skip-to-content {
+    @apply absolute -top-10 left-4 z-[100];
+    @apply bg-primary text-primary-foreground;
+    @apply px-4 py-2 rounded-md;
+    @apply focus:top-4;
+    @apply transition-all duration-200;
+  }
+  
+  /* Screen reader only */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* ===================================
+   PERFORMANCE OPTIMIZATIONS
+   =================================== */
+
+@layer utilities {
+  /* Hardware acceleration for animations */
+  .gpu-accelerated {
+    transform: translateZ(0);
+    will-change: transform;
+  }
+  
+  /* Optimize font loading */
+  .font-display-swap {
+    font-display: swap;
+  }
+  
+  /* Lazy loading placeholder */
+  .lazy-load-placeholder {
+    @apply bg-gray-200 animate-pulse;
+    @apply rounded-md;
+  }
+}
+
+/* ===================================
+   RTL SUPPORT (for Arabic)
+   =================================== */
+
 [dir="rtl"] {
-  font-family: var(--font-cairo), sans-serif;
-}
-
-[dir="ltr"] {
-  font-family: var(--font-inter), sans-serif;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  @apply bg-muted;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/20 rounded-md;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-muted-foreground/30;
-}
-
-/* Loading animation */
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
+  /* Flip horizontal spacing and alignment */
+  .rtl\:text-right {
+    text-align: right;
   }
-  50% {
-    opacity: 0.5;
+  
+  .rtl\:ml-auto {
+    margin-right: auto;
+    margin-left: 0;
   }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* Gradient text */
-.gradient-text {
-  @apply bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent;
-}
-
-/* Glass morphism */
-.glass {
-  @apply bg-white/70 backdrop-blur-lg border border-white/20;
-}
-
-.dark .glass {
-  @apply bg-gray-900/70 border-gray-700/20;
-}
-
-/* Arabic specific styles */
-.text-arabic {
-  font-family: var(--font-cairo), 'Noto Sans Arabic', sans-serif;
-  line-height: 1.8;
-}
-
-/* Grid pattern background */
-.bg-grid-pattern {
-  background-image: 
-    linear-gradient(to right, rgb(229 231 235 / 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(229 231 235 / 0.5) 1px, transparent 1px);
-  background-size: 20px 20px;
-}
-
-.dark .bg-grid-pattern {
-  background-image: 
-    linear-gradient(to right, rgb(55 65 81 / 0.5) 1px, transparent 1px),
-    linear-gradient(to bottom, rgb(55 65 81 / 0.5) 1px, transparent 1px);
+  
+  .rtl\:space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+    --tw-space-x-reverse: 1;
+  }
 }
