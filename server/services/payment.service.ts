@@ -234,15 +234,15 @@ export class PaymentService {
                 },
                 tax_total: {
                   currency_code: data.currency,
-                  value: order.tax.toFixed(2),
+                  value: (order.tax ?? 0).toFixed(2),
                 },
                 shipping: {
                   currency_code: data.currency,
-                  value: order.shipping.toFixed(2),
+                  value: (order.shipping ?? 0).toFixed(2),
                 },
                 discount: {
                   currency_code: data.currency,
-                  value: order.discount.toFixed(2),
+                  value: (order.discount ?? 0).toFixed(2),
                 },
               },
             },

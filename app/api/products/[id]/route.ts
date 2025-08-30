@@ -363,6 +363,9 @@ export async function DELETE(
     // Check if product exists
     const existingProduct = await prisma.product.findUnique({
       where: { id },
+      include: {
+        supplier: true,
+      },
     });
 
     if (!existingProduct) {
@@ -387,8 +390,8 @@ export async function DELETE(
     const canDelete = await checkProductDeletePermission(
       userId,
       userType || '',
-      product.supplierId,
-      product.supplier?.userId
+      existingProduct.supplierId,
+      existingProduct.supplier?.userId
     );
 
     if (!canDelete) {
@@ -428,7 +431,7 @@ export async function DELETE(
         status: 'DISCONTINUED',
         isPublished: false,
         metadata: {
-          ...product.metadata,
+          ...existingProduct.metadata,
           deletedBy: userId,
           deletedAt: new Date().toISOString(),
         },
