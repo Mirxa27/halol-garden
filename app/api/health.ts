@@ -6,14 +6,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { PrismaClient } from '@prisma/client';
 import Redis from 'ioredis';
-import { Client as ElasticsearchClient } from '@elastic/elasticsearch';
+// import { Client as ElasticsearchClient } from '@elastic/elasticsearch';
 import { monitoring } from '../../client/lib/monitoring';
 
 const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
-const elasticsearch = new ElasticsearchClient({
-  node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200',
-});
+const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379');
+// const elasticsearch = new ElasticsearchClient({
+//   node: process.env.ELASTICSEARCH_URL || 'http://localhost:9200',
+// });
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -24,7 +24,7 @@ interface HealthStatus {
   services: {
     database: ServiceHealth;
     redis: ServiceHealth;
-    elasticsearch: ServiceHealth;
+    // elasticsearch: ServiceHealth;
     storage: ServiceHealth;
     websocket: ServiceHealth;
   };
@@ -69,12 +69,12 @@ export default async function handler(
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: process.env.npm_package_version || '1.0.0',
-    environment: process.env.NODE_ENV || 'development',
+    version: process.env['npm_package_version'] || '1.0.0',
+    environment: process.env['NODE_ENV'] || 'development',
     services: {
       database: { status: 'down' },
       redis: { status: 'down' },
-      elasticsearch: { status: 'down' },
+      // elasticsearch: { status: 'down' },
       storage: { status: 'down' },
       websocket: { status: 'down' },
     },
@@ -149,38 +149,38 @@ export default async function handler(
     });
   }
 
-  // Check Elasticsearch
-  try {
-    const esStart = Date.now();
-    const esHealth = await elasticsearch.cluster.health();
-    const esLatency = Date.now() - esStart;
-    
-    healthStatus.services.elasticsearch = {
-      status: esHealth.status === 'green' ? 'up' : esHealth.status === 'yellow' ? 'degraded' : 'down',
-      latency: esLatency,
-    };
-    
-    healthStatus.checks.push({
-      name: 'Elasticsearch Cluster',
-      status: esHealth.status === 'green' ? 'pass' : 'warn',
-      message: `Cluster status: ${esHealth.status}`,
-      duration: esLatency,
-    });
-  } catch (error) {
-    healthStatus.services.elasticsearch = {
-      status: 'down',
-      error: (error as Error).message,
-    };
-    if (healthStatus.status === 'healthy') {
-      healthStatus.status = 'degraded';
-    }
-    
-    healthStatus.checks.push({
-      name: 'Elasticsearch Cluster',
-      status: 'warn',
-      message: (error as Error).message,
-    });
-  }
+  // Check Elasticsearch - Commented out as dependency not available
+  // try {
+  //   const esStart = Date.now();
+  //   const esHealth = await elasticsearch.cluster.health();
+  //   const esLatency = Date.now() - esStart;
+  //   
+  //   healthStatus.services.elasticsearch = {
+  //     status: esHealth.status === 'green' ? 'up' : esHealth.status === 'yellow' ? 'degraded' : 'down',
+  //     latency: esLatency,
+  //   };
+  //   
+  //   healthStatus.checks.push({
+  //     name: 'Elasticsearch Cluster',
+  //     status: esHealth.status === 'green' ? 'pass' : 'warn',
+  //     message: `Cluster status: ${esHealth.status}`,
+  //     duration: esLatency,
+  //   });
+  // } catch (error) {
+  //   healthStatus.services.elasticsearch = {
+  //     status: 'down',
+  //     error: (error as Error).message,
+  //   };
+  //   if (healthStatus.status === 'healthy') {
+  //     healthStatus.status = 'degraded';
+  //   }
+  //   
+  //   healthStatus.checks.push({
+  //     name: 'Elasticsearch Cluster',
+  //     status: 'warn',
+  //     message: (error as Error).message,
+  //   });
+  // }
 
   // Check storage (S3/local)
   try {

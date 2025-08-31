@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { 
   OrderStatus, 
   PaymentStatus, 
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          shipping: true,
+          shippingInfo: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
           total: finalTotal,
           shippingAddress: validatedData.shippingAddress,
           billingAddress: validatedData.billingAddress || validatedData.shippingAddress,
-          notes: validatedData.notes,
+          notes: validatedData.notes || null,
           metadata: {
             couponCode: validatedData.couponCode,
             source: 'web',
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
           carrier: 'TBD',
           status: ShippingStatus.PENDING,
           estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          shippingAddress: validatedData.shippingAddress,
+          address: validatedData.shippingAddress,
         },
       });
 
@@ -332,7 +332,7 @@ export async function getOrder(
             product: true,
           },
         },
-        shipping: true,
+        shippingInfo: true,
         user: {
           select: {
             id: true,

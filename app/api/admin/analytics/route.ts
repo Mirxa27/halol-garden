@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 
 // Analytics query validation
 const analyticsQuerySchema = z.object({
@@ -107,18 +107,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function getSalesAnalytics(startDate: Date, endDate: Date, groupBy?: string) {
+async function getSalesAnalytics(startDate: Date, endDate: Date, _groupBy?: string) {
   const baseWhere = {
     createdAt: { gte: startDate, lte: endDate },
-    paymentStatus: 'COMPLETED'
+    paymentStatus: 'COMPLETED' as const
   };
 
   const [
     totalSales,
     salesByDay,
     salesByCategory,
-    averageOrderValue,
-    conversionRate
+    averageOrderValue
+    // conversionRate
   ] = await Promise.all([
     // Total sales
     prisma.order.aggregate({
@@ -164,11 +164,10 @@ async function getSalesAnalytics(startDate: Date, endDate: Date, groupBy?: strin
     prisma.order.aggregate({
       _avg: { total: true },
       where: baseWhere
-    }),
+    })
 
-    // Conversion rate (orders / unique visitors)
-    // For now, simplified calculation
-    prisma.order.count({ where: baseWhere })
+    // Conversion rate would be calculated with visitor tracking
+    // prisma.order.count({ where: baseWhere })
   ]);
 
   return {
@@ -183,7 +182,7 @@ async function getSalesAnalytics(startDate: Date, endDate: Date, groupBy?: strin
   };
 }
 
-async function getUserAnalytics(startDate: Date, endDate: Date, groupBy?: string) {
+async function getUserAnalytics(startDate: Date, endDate: Date, _groupBy?: string) {
   const [
     totalUsers,
     newUsers,
@@ -248,7 +247,7 @@ async function getUserAnalytics(startDate: Date, endDate: Date, groupBy?: string
   };
 }
 
-async function getProductAnalytics(startDate: Date, endDate: Date, groupBy?: string) {
+async function getProductAnalytics(startDate: Date, endDate: Date, _groupBy?: string) {
   const [
     topProducts,
     categoryPerformance,
@@ -367,7 +366,7 @@ async function getPerformanceAnalytics(startDate: Date, endDate: Date) {
   };
 }
 
-async function getRevenueAnalytics(startDate: Date, endDate: Date, groupBy?: string) {
+async function getRevenueAnalytics(startDate: Date, endDate: Date, _groupBy?: string) {
   const [
     revenueByDay,
     revenueByCategory,

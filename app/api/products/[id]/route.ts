@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
 // Validation schemas
@@ -27,7 +27,7 @@ const updateProductSchema = z.object({
 });
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -76,6 +76,14 @@ export async function GET(
         },
         questions: {
           include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                profileImage: true,
+              },
+            },
             answers: {
               include: {
                 user: {
@@ -147,13 +155,13 @@ export async function GET(
       pricing: {
         basePrice: product.salesDetails?.basePrice,
         discountedPrice: product.salesDetails?.discountedPrice,
-        taxRate: product.salesDetails?.taxRate,
+        // taxRate: product.salesDetails?.taxRate, // Field doesn't exist in schema
         dailyRate: product.rentalDetails?.dailyRate,
         weeklyRate: product.rentalDetails?.weeklyRate,
         monthlyRate: product.rentalDetails?.monthlyRate,
         securityDeposit: product.rentalDetails?.securityDeposit,
-        deliveryFee: product.rentalDetails?.deliveryFee,
-        setupFee: product.rentalDetails?.setupFee,
+        // deliveryFee: product.rentalDetails?.deliveryFee, // Field doesn't exist in schema
+        // setupFee: product.rentalDetails?.setupFee, // Field doesn't exist in schema
         minimumRentalPeriod: product.rentalDetails?.minimumRentalPeriod,
         maximumRentalPeriod: product.rentalDetails?.maximumRentalPeriod,
       },
@@ -176,9 +184,9 @@ export async function GET(
         rating: review.rating,
         title: review.title,
         comment: review.comment,
-        verifiedPurchase: review.verifiedPurchase,
+        isVerified: review.isVerified,
         helpful: review.helpful,
-        notHelpful: review.notHelpful,
+        // notHelpful: review.notHelpful, // Field doesn't exist in schema
         user: {
           id: review.user.id,
           name: `${review.user.firstName} ${review.user.lastName}`,
@@ -197,7 +205,7 @@ export async function GET(
         answers: question.answers.map(answer => ({
           id: answer.id,
           answer: answer.answer,
-          isSupplierAnswer: answer.isSupplierAnswer,
+          isOfficial: answer.isOfficial,
           helpful: answer.helpful,
           user: {
             id: answer.user.id,
@@ -280,13 +288,9 @@ export async function PUT(
       );
     }
 
-    // Prepare update data
-    const updateData: any = {};
-
-    // Update product
-    const updatedProduct = await prisma.product.update({
-      where: { id: params.id },
-      data: {
+    // Create clean update data object without undefined values
+    const updateData = Object.fromEntries(
+      Object.entries({
         name: validatedData.name,
         nameAr: validatedData.nameAr,
         description: validatedData.description,
@@ -307,7 +311,13 @@ export async function PUT(
         tags: validatedData.tags,
         featured: validatedData.featured,
         status: validatedData.status,
-      },
+      }).filter(([_, value]) => value !== undefined)
+    );
+
+    // Update product
+    const updatedProduct = await prisma.product.update({
+      where: { id: params.id },
+      data: updateData,
       include: {
         supplier: {
           select: {
@@ -346,7 +356,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {

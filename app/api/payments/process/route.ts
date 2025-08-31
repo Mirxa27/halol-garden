@@ -13,7 +13,7 @@ const paymentSchema = z.object({
 
 // Initialize Stripe
 const stripe = new Stripe(process.env['STRIPE_SECRET_KEY'] || '', {
-  apiVersion: '2024-12-18.acacia',
+  apiVersion: '2025-02-24.acacia',
 });
 
 export async function POST(request: NextRequest) {
@@ -31,10 +31,12 @@ export async function POST(request: NextRequest) {
         const paymentIntent = await stripe.paymentIntents.create({
           amount: Math.round(amount * 100), // Convert to cents
           currency: currency.toLowerCase(),
-          customer_email: customerEmail,
           description: description || 'Medical Device Purchase',
           automatic_payment_methods: {
             enabled: true,
+          },
+          metadata: {
+            customer_email: customerEmail || '',
           },
         });
 
@@ -50,8 +52,8 @@ export async function POST(request: NextRequest) {
         const myFatoorahResponse = await processMyFatoorahPayment({
           amount,
           currency,
-          customerEmail,
-          description,
+          customerEmail: customerEmail || '',
+          description: description || '',
         });
 
         return NextResponse.json({
@@ -166,13 +168,13 @@ async function processMyFatoorahPayment(data: {
   };
 }
 
-// PayPal integration would go here
-async function processPayPalPayment(data: {
-  amount: number;
-  currency: string;
-  description?: string;
-}) {
-  // PayPal SDK integration
-  // This would require PayPal's REST API implementation
-  throw new Error('PayPal integration not yet implemented');
-}
+// PayPal integration would go here - commented out as unused
+// async function processPayPalPayment(data: {
+//   amount: number;
+//   currency: string;
+//   description?: string;
+// }) {
+//   // PayPal SDK integration
+//   // This would require PayPal's REST API implementation
+//   throw new Error('PayPal integration not yet implemented');
+// }

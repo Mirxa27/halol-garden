@@ -18,10 +18,10 @@ export const POST = withAuth(
       }
       
       // Single file upload
-      if (files.length === 1) {
+      if (files.length === 1 && files[0]) {
         const result = await uploadFile(files[0], {
           userId: req.user.id,
-          productId,
+          ...(productId && { productId }),
           folder,
           isPublic: true
         });
@@ -47,7 +47,7 @@ export const POST = withAuth(
       // Multiple files upload
       const result = await bulkUploadFiles(files, {
         userId: req.user.id,
-        productId,
+        ...(productId && { productId }),
         folder
       });
       

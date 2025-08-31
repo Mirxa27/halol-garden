@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
     });
     
     // Send verification email
-    const verificationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${process.env['NEXT_PUBLIC_APP_URL']}/verify-email?token=${verificationToken}`;
     await sendEmail({
       to: user.email,
       subject: 'Verify Your Email - Medical Devices Marketplace',
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         token: sessionId,
         ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
-        userAgent: request.headers.get('user-agent') || undefined,
+        userAgent: request.headers.get('user-agent') || null,
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
       }
     });
@@ -320,8 +320,8 @@ export async function POST(request: NextRequest) {
         action: 'USER_REGISTERED',
         entity: 'User',
         entityId: user.id,
-        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined,
-        userAgent: request.headers.get('user-agent') || undefined,
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+        userAgent: request.headers.get('user-agent') || null,
         newData: { userType: user.userType, email: user.email }
       }
     });

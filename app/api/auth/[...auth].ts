@@ -1,6 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { AuthService } from '../../../server/services/auth.service';
-import { prisma } from '../../../server/config/database';
 import { z } from 'zod';
 
 // Validation schemas
@@ -48,12 +47,7 @@ export default async function handler(
         }
 
         const loginData = loginSchema.parse(req.body);
-        const loginResult = await AuthService.login(
-          loginData.email,
-          loginData.password,
-          req.headers['user-agent'] || '',
-          req.socket.remoteAddress || ''
-        );
+        const loginResult = await AuthService.login(loginData);
 
         return res.status(200).json({
           success: true,

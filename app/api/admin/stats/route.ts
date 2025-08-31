@@ -3,7 +3,7 @@ import { withAuth } from '@/lib/auth/middleware';
 import prisma from '@/lib/prisma';
 
 export const GET = withAuth(
-  async (req: any) => {
+  async (_req: any) => {
     try {
       // Get various statistics
       const [

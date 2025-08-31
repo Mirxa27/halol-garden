@@ -13,7 +13,7 @@ const settingSchema = z.object({
 
 // GET all settings
 export const GET = withAuth(
-  async (req: any) => {
+  async (_req: any) => {
     try {
       const settings = await prisma.systemSetting.findMany({
         orderBy: { key: 'asc' }
@@ -84,13 +84,13 @@ export const POST = withAuth(
         update: { 
           value: type === 'JSON' ? processedValue : JSON.stringify(processedValue),
           type,
-          description
+          description: description || null
         },
         create: {
           key,
           value: type === 'JSON' ? processedValue : JSON.stringify(processedValue),
           type,
-          description
+          description: description || null
         }
       });
       

@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
+import prisma from '@/lib/prisma';
+
+// Type for inventory JSON field
+interface InventoryData {
+  quantity: number;
+  reserved: number;
+  reorderPoint: number;
+}
 
 // Cart item validation schema
 const cartItemSchema = z.object({
@@ -87,7 +93,7 @@ export async function GET(request: NextRequest) {
           id: item.product.id,
           name: item.product.name,
           nameAr: item.product.nameAr,
-          image: item.product.images?.[0] || null,
+          image: (item.product.images as string[])?.[0] || null,
           price: item.product.salesDetails?.basePrice || 0,
           discountedPrice: item.product.salesDetails?.discountedPrice,
           sku: item.product.sku,
@@ -168,13 +174,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check inventory
-    if (product.salesDetails?.inventory?.quantity !== undefined) {
-      if (product.salesDetails.inventory.quantity < validatedData.quantity) {
+    const inventory = product.salesDetails?.inventory as InventoryData | null;
+    if (inventory?.quantity !== undefined) {
+      if (inventory.quantity < validatedData.quantity) {
         return NextResponse.json(
           { 
             success: false, 
             error: 'Insufficient inventory',
-            available: product.salesDetails.inventory.quantity,
+            available: inventory.quantity,
           },
           { status: 400 }
         );
@@ -205,13 +212,14 @@ export async function POST(request: NextRequest) {
       const newQuantity = existingItem.quantity + validatedData.quantity;
       
       // Check inventory for new quantity
-      if (product.salesDetails?.inventory?.quantity !== undefined) {
-        if (product.salesDetails.inventory.quantity < newQuantity) {
+      const productInventory = product.salesDetails?.inventory as InventoryData | null;
+      if (productInventory?.quantity !== undefined) {
+        if (productInventory.quantity < newQuantity) {
           return NextResponse.json(
             { 
               success: false, 
               error: 'Insufficient inventory for requested quantity',
-              available: product.salesDetails.inventory.quantity,
+              available: productInventory.quantity,
             },
             { status: 400 }
           );
@@ -309,13 +317,14 @@ export async function PUT(request: NextRequest) {
       });
     } else {
       // Check inventory
-      if (cartItem.product.salesDetails?.inventory?.quantity !== undefined) {
-        if (cartItem.product.salesDetails.inventory.quantity < validatedData.quantity) {
+      const cartInventory = cartItem.product.salesDetails?.inventory as InventoryData | null;
+      if (cartInventory?.quantity !== undefined) {
+        if (cartInventory.quantity < validatedData.quantity) {
           return NextResponse.json(
             { 
               success: false, 
               error: 'Insufficient inventory',
-              available: cartItem.product.salesDetails.inventory.quantity,
+              available: cartInventory.quantity,
             },
             { status: 400 }
           );

@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     address: false,
     telephone: false,
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://medical-devices.com'),
+  metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] || 'https://medical-devices.com'),
   openGraph: {
     title: 'Medical Devices Marketplace',
     description: 'Leading marketplace for medical devices in the Middle East',
