@@ -1,21 +1,17 @@
 import { Metadata } from 'next';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
 import { 
   Star, ShoppingCart, Heart, Share2, Shield, Truck, 
-  RefreshCw, CheckCircle, Info, Package, AlertCircle,
-  ThumbsUp, MessageSquare, User
+  RefreshCw, CheckCircle, Package, AlertCircle
 } from 'lucide-react';
 import { ProductGallery } from '@/components/products/ProductGallery';
 import { ProductReviews } from '@/components/products/ProductReviews';
 import { RelatedProducts } from '@/components/products/RelatedProducts';
-import prisma from '@/lib/prisma';
 
 interface ProductPageProps {
   params: { id: string };

@@ -16,12 +16,12 @@ export default async function handler(
 ) {
   // Verify cron secret
   const cronSecret = req.headers['x-cron-secret'];
-  if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV === 'production') {
+  if (cronSecret !== process.env['CRON_SECRET'] && process.env['NODE_ENV'] === 'production') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   // Only allow Vercel Cron or manual trigger in development
-  if (process.env.NODE_ENV === 'production' && !req.headers['x-vercel-cron']) {
+  if (process.env['NODE_ENV'] === 'production' && !req.headers['x-vercel-cron']) {
     return res.status(401).json({ error: 'Only Vercel Cron can trigger this endpoint' });
   }
 
@@ -32,7 +32,7 @@ export default async function handler(
     const { stdout, stderr } = await execAsync('./scripts/backup-automation.sh backup full');
 
     if (stderr) {
-      monitoring.error('Backup job stderr output', { stderr });
+      monitoring.error('Backup job stderr output', undefined, { stderr });
     }
 
     monitoring.info('Backup job completed successfully', { stdout });
@@ -61,9 +61,9 @@ export default async function handler(
 
 async function sendBackupNotification(status: 'success' | 'failure', details: string) {
   // Send to Slack
-  if (process.env.SLACK_WEBHOOK_URL) {
+  if (process.env['SLACK_WEBHOOK_URL']) {
     try {
-      await fetch(process.env.SLACK_WEBHOOK_URL, {
+      await fetch(process.env['SLACK_WEBHOOK_URL'], {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

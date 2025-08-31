@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
           total: finalTotal,
           shippingAddress: validatedData.shippingAddress,
           billingAddress: validatedData.billingAddress || validatedData.shippingAddress,
-          notes: validatedData.notes,
+          notes: validatedData.notes || null,
           metadata: {
             couponCode: validatedData.couponCode,
             source: 'web',

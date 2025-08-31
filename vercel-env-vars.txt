@@ -1,0 +1,39 @@
+# COPY THESE TO VERCEL DASHBOARD → PROJECT SETTINGS → ENVIRONMENT VARIABLES
+
+# Database (Required)
+DATABASE_URL=postgres://7450b05d2e4722a8da3bd01e04a15e9e63000bebcc794d7267b6e1dd33b0afa9:sk_tUUylaGaYFpQCzkm4CTtU@db.prisma.io:5432/postgres?sslmode=require
+
+# Authentication & Security (Required)
+JWT_SECRET=NQ5oBXN8olz5o9v7raQ2zQ0tWUocXm
+NEXTAUTH_SECRET=xo0VtbP4IYNmiVpiqrVCiGnweBR56b
+ENCRYPTION_KEY=93b4fac179039113589e0229017e078f
+NEXTAUTH_URL=https://halol-garden.vercel.app
+NEXT_PUBLIC_APP_URL=https://halol-garden.vercel.app
+NODE_ENV=production
+
+# Email Configuration (Update with real SMTP)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASS=YOUR_SMTP_API_KEY_HERE
+FROM_EMAIL=noreply@halol-garden.com
+
+# Payment Gateways (Add real credentials)
+STRIPE_PUBLISHABLE_KEY=pk_live_YOUR_STRIPE_PUBLIC_KEY
+STRIPE_SECRET_KEY=sk_live_YOUR_STRIPE_SECRET_KEY
+PAYPAL_CLIENT_ID=YOUR_PAYPAL_CLIENT_ID
+PAYPAL_CLIENT_SECRET=YOUR_PAYPAL_CLIENT_SECRET
+MYFATOORAH_API_KEY=YOUR_MYFATOORAH_API_KEY
+
+# Optional Services
+REDIS_URL=redis://YOUR_REDIS_URL_IF_USING
+OPENAI_API_KEY=sk-YOUR_OPENAI_KEY_IF_USING
+AWS_ACCESS_KEY_ID=YOUR_AWS_KEY_FOR_S3
+AWS_SECRET_ACCESS_KEY=YOUR_AWS_SECRET_FOR_S3
+AWS_S3_BUCKET=your-s3-bucket-name
+
+# IMPORTANT NOTES:
+# 1. Set all of these in Vercel Dashboard before deploying
+# 2. Replace placeholder values with real credentials for production
+# 3. Email/Payment will not work until real credentials are added
+# 4. Redis is optional but recommended for performance

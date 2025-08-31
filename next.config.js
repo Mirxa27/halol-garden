@@ -1,13 +1,8 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
-  
-  // Internationalization
-  i18n: {
-    locales: ['en', 'ar'],
-    defaultLocale: 'en',
-  },
   
   // Image optimization
   images: {
@@ -105,10 +100,8 @@ const nextConfig = {
     ];
   },
   
-  // Experimental features
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client', 'bcryptjs'],
-  },
+  // External packages for server components
+  serverExternalPackages: ['@prisma/client', 'bcryptjs'],
   
   // Output configuration
   output: 'standalone',

@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
           entity: 'User',
           entityId: user.id,
           ipAddress: clientIp,
-          userAgent: request.headers.get('user-agent') || undefined,
+          userAgent: request.headers.get('user-agent') || null,
           newData: { reason: 'Invalid password' }
         }
       });
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         token: sessionId,
         ipAddress: clientIp,
-        userAgent: request.headers.get('user-agent') || undefined,
+        userAgent: request.headers.get('user-agent') || null,
         expiresAt: sessionExpiry
       }
     });
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         entity: 'User',
         entityId: user.id,
         ipAddress: clientIp,
-        userAgent: request.headers.get('user-agent') || undefined,
+        userAgent: request.headers.get('user-agent') || null,
         newData: { sessionId, rememberMe }
       }
     });

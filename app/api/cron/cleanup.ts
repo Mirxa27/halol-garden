@@ -11,7 +11,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 const prisma = new PrismaClient();
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+const redis = new Redis(process.env['REDIS_URL'] || 'redis://localhost:6379');
 
 interface CleanupResult {
   deletedSessions: number;
@@ -28,12 +28,12 @@ export default async function handler(
 ) {
   // Verify cron secret
   const cronSecret = req.headers['x-cron-secret'];
-  if (cronSecret !== process.env.CRON_SECRET && process.env.NODE_ENV === 'production') {
+  if (cronSecret !== process.env['CRON_SECRET'] && process.env['NODE_ENV'] === 'production') {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   // Only allow Vercel Cron or manual trigger in development
-  if (process.env.NODE_ENV === 'production' && !req.headers['x-vercel-cron']) {
+  if (process.env['NODE_ENV'] === 'production' && !req.headers['x-vercel-cron']) {
     return res.status(401).json({ error: 'Only Vercel Cron can trigger this endpoint' });
   }
 
@@ -56,7 +56,7 @@ export default async function handler(
 
       const deletedSessions = await prisma.session.deleteMany({
         where: {
-          expires: {
+          expiresAt: {
             lt: thirtyDaysAgo,
           },
         },

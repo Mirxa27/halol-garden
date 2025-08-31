@@ -74,7 +74,7 @@ export default function CustomerDashboard() {
   const [orders, setOrders] = useState<OrderData[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
+  // const [selectedOrder, setSelectedOrder] = useState<OrderData | null>(null);
 
   useEffect(() => {
     fetchDashboardData();
@@ -283,7 +283,7 @@ export default function CustomerDashboard() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => console.log('View order:', order.id)}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>

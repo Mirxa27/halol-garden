@@ -1,13 +1,11 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Truck, Shield, CreditCard } from 'lucide-react';
-import { getServerSession } from 'next-auth';
-import prisma from '@/lib/prisma';
+// import { auth } from 'next-auth';
 
 export const metadata: Metadata = {
   title: 'Shopping Cart | Medical Devices Marketplace',
@@ -15,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CartPage() {
-  const session = await getServerSession();
+  // const session = await auth();
   
   // Fetch cart items (mock data for now)
   const cartItems = [

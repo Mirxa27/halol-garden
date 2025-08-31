@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 
 // GET all email templates
 export const GET = withAuth(
-  async (req: any) => {
+  async (_req: any) => {
     try {
       const templates = await prisma.emailTemplate.findMany({
         orderBy: { name: 'asc' }

@@ -79,8 +79,8 @@ export async function GET(request: NextRequest) {
       prisma.order.aggregate({
         _sum: { total: true },
         where: { 
-          status: { in: ['DELIVERED', 'COMPLETED'] },
-          paymentStatus: 'COMPLETED'
+          status: { in: ['DELIVERED'] },
+          paymentStatus: 'COMPLETED' as const
         }
       }),
       
@@ -195,8 +195,8 @@ export async function GET(request: NextRequest) {
         _sum: { total: true },
         where: {
           createdAt: { gte: previousPeriodStart, lt: startDate },
-          status: { in: ['DELIVERED', 'COMPLETED'] },
-          paymentStatus: 'COMPLETED'
+          status: { in: ['DELIVERED'] },
+          paymentStatus: 'COMPLETED' as const
         }
       })
     ]);
