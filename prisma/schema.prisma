@@ -50,6 +50,7 @@ model User {
   preferredLanguage  String             @default("en")
   twoFactorEnabled   Boolean            @default(false)
   twoFactorSecret    String?
+  backupCodes        Json?              // Array of hashed backup codes
   emailVerifiedAt    DateTime?
   lastLoginAt        DateTime?
   createdAt          DateTime           @default(now())

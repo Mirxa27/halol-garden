@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { getCurrentUser, isSupplier } from '@/lib/auth';
+import { UserType } from '@prisma/client';
 
 // Validation schemas
 const productQuerySchema = z.object({
@@ -12,6 +14,7 @@ const productQuerySchema = z.object({
   maxPrice: z.string().optional().transform(val => parseFloat(val || '999999')),
   condition: z.enum(['NEW', 'REFURBISHED', 'USED_EXCELLENT', 'USED_GOOD', 'USED_FAIR']).optional(),
   availabilityType: z.enum(['SALE', 'RENT', 'BOTH']).optional(),
+  featured: z.string().optional().transform(val => val === 'true'),
   sortBy: z.enum(['price', 'name', 'rating', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
@@ -81,6 +84,10 @@ export async function GET(request: NextRequest) {
         { brand: { contains: validatedQuery.search, mode: 'insensitive' } },
         { model: { contains: validatedQuery.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (validatedQuery.featured) {
+      where.featured = true;
     }
 
     // Build order by clause
@@ -200,14 +207,41 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is a supplier
+    if (user.role !== UserType.EQUIPMENT_SUPPLIER) {
+      return NextResponse.json(
+        { success: false, error: 'Only suppliers can create products' },
+        { status: 403 }
+      );
+    }
+
+    // Get supplier profile
+    const supplierProfile = await prisma.equipmentSupplier.findUnique({
+      where: { userId: user.id },
+    });
+
+    if (!supplierProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Supplier profile not found' },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
     
     // Validate request body
     const validatedData = createProductSchema.parse(body);
     
-    // TODO: Get supplier ID from authenticated user
-    // For now, using a placeholder
-    const supplierId = 'supplier-placeholder-id';
+    const supplierId = supplierProfile.id;
     
     // Generate SKU
     const sku = `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

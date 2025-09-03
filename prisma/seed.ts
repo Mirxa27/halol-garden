@@ -1,628 +1,676 @@
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
-import prisma from '../lib/prisma';
 
-// Configuration for super admin
-const SUPER_ADMIN_CONFIG = {
-  email: process.env.SUPER_ADMIN_EMAIL || 'superadmin@medical-devices.com',
-  password: process.env.SUPER_ADMIN_PASSWORD || 'SuperAdmin@2024!',
-  firstName: 'Super',
-  lastName: 'Admin',
-  phoneNumber: '+966500000000'
-};
-
-// System settings defaults
-const DEFAULT_SYSTEM_SETTINGS = [
-  {
-    key: 'site_name',
-    value: JSON.stringify('Medical Devices Marketplace'),
-    type: 'STRING',
-    description: 'Site name displayed across the platform'
-  },
-  {
-    key: 'site_url',
-    value: JSON.stringify(process.env.NEXT_PUBLIC_APP_URL || 'https://medical-devices.com'),
-    type: 'STRING',
-    description: 'Main site URL'
-  },
-  {
-    key: 'support_email',
-    value: JSON.stringify('support@medical-devices.com'),
-    type: 'STRING',
-    description: 'Support email address'
-  },
-  {
-    key: 'default_currency',
-    value: JSON.stringify('USD'),
-    type: 'STRING',
-    description: 'Default currency for the platform'
-  },
-  {
-    key: 'tax_rate',
-    value: JSON.stringify(0.15),
-    type: 'NUMBER',
-    description: 'Default tax rate (15% VAT)'
-  },
-  {
-    key: 'shipping_base_rate',
-    value: JSON.stringify(25),
-    type: 'NUMBER',
-    description: 'Base shipping rate in default currency'
-  },
-  {
-    key: 'free_shipping_threshold',
-    value: JSON.stringify(500),
-    type: 'NUMBER',
-    description: 'Order amount for free shipping'
-  },
-  {
-    key: 'order_cancellation_window',
-    value: JSON.stringify(24),
-    type: 'NUMBER',
-    description: 'Hours allowed for order cancellation'
-  },
-  {
-    key: 'return_window',
-    value: JSON.stringify(30),
-    type: 'NUMBER',
-    description: 'Days allowed for product returns'
-  },
-  {
-    key: 'commission_rate',
-    value: JSON.stringify(0.10),
-    type: 'NUMBER',
-    description: 'Platform commission rate (10%)'
-  },
-  {
-    key: 'maintenance_mode',
-    value: JSON.stringify(false),
-    type: 'BOOLEAN',
-    description: 'Enable/disable maintenance mode'
-  },
-  {
-    key: 'allowed_file_types',
-    value: JSON.stringify(['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx']),
-    type: 'JSON',
-    description: 'Allowed file types for uploads'
-  },
-  {
-    key: 'max_file_size',
-    value: JSON.stringify(10485760), // 10MB in bytes
-    type: 'NUMBER',
-    description: 'Maximum file size for uploads (in bytes)'
-  },
-  {
-    key: 'smtp_config',
-    value: JSON.stringify({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER || '',
-        pass: process.env.SMTP_PASS || ''
-      }
-    }),
-    type: 'JSON',
-    description: 'SMTP configuration for email sending'
-  },
-  {
-    key: 'payment_gateways',
-    value: JSON.stringify({
-      stripe: {
-        enabled: true,
-        publicKey: process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY || '',
-        secretKey: process.env.STRIPE_SECRET_KEY || ''
-      },
-      myfatoorah: {
-        enabled: true,
-        apiKey: process.env.MYFATOORAH_API_KEY || '',
-        baseUrl: process.env.MYFATOORAH_BASE_URL || 'https://api.myfatoorah.com'
-      },
-      paypal: {
-        enabled: false,
-        clientId: process.env.PAYPAL_CLIENT_ID || '',
-        clientSecret: process.env.PAYPAL_CLIENT_SECRET || ''
-      }
-    }),
-    type: 'JSON',
-    description: 'Payment gateway configurations'
-  },
-  {
-    key: 'redis_config',
-    value: JSON.stringify({
-      host: process.env.REDIS_HOST || 'localhost',
-      port: parseInt(process.env.REDIS_PORT || '6379'),
-      password: process.env.REDIS_PASSWORD || ''
-    }),
-    type: 'JSON',
-    description: 'Redis configuration for caching'
-  },
-  {
-    key: 'aws_s3_config',
-    value: JSON.stringify({
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-      region: process.env.AWS_REGION || 'us-east-1',
-      bucket: process.env.AWS_S3_BUCKET || 'medical-devices-uploads'
-    }),
-    type: 'JSON',
-    description: 'AWS S3 configuration for file storage'
-  },
-  {
-    key: 'notification_channels',
-    value: JSON.stringify({
-      email: true,
-      sms: false,
-      push: true,
-      inApp: true
-    }),
-    type: 'JSON',
-    description: 'Enabled notification channels'
-  },
-  {
-    key: 'language_settings',
-    value: JSON.stringify({
-      default: 'en',
-      supported: ['en', 'ar'],
-      rtlLanguages: ['ar']
-    }),
-    type: 'JSON',
-    description: 'Language configuration'
-  },
-  {
-    key: 'security_settings',
-    value: JSON.stringify({
-      passwordMinLength: 8,
-      passwordRequireUppercase: true,
-      passwordRequireLowercase: true,
-      passwordRequireNumbers: true,
-      passwordRequireSpecialChars: true,
-      maxLoginAttempts: 5,
-      lockoutDuration: 30, // minutes
-      sessionTimeout: 1440, // minutes (24 hours)
-      requireEmailVerification: true,
-      require2FA: false
-    }),
-    type: 'JSON',
-    description: 'Security configuration settings'
-  }
-];
-
-// Email templates
-const EMAIL_TEMPLATES = [
-  {
-    name: 'welcome',
-    subject: 'Welcome to Medical Devices Marketplace',
-    body: `
-      <h2>Welcome {{firstName}}!</h2>
-      <p>Thank you for joining Medical Devices Marketplace.</p>
-      <p>Your account has been successfully created with the email: {{email}}</p>
-      <p>Please verify your email by clicking the link below:</p>
-      <a href="{{verificationUrl}}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Verify Email</a>
-      <p>If you have any questions, please contact our support team.</p>
-      <p>Best regards,<br>Medical Devices Marketplace Team</p>
-    `,
-    variables: JSON.stringify(['firstName', 'email', 'verificationUrl']),
-    isActive: true
-  },
-  {
-    name: 'password_reset',
-    subject: 'Password Reset Request',
-    body: `
-      <h2>Password Reset Request</h2>
-      <p>Hi {{firstName}},</p>
-      <p>We received a request to reset your password. Click the link below to reset it:</p>
-      <a href="{{resetUrl}}" style="background-color: #2196F3; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-      <p>This link will expire in 1 hour.</p>
-      <p>If you didn't request this, please ignore this email.</p>
-      <p>Best regards,<br>Medical Devices Marketplace Team</p>
-    `,
-    variables: JSON.stringify(['firstName', 'resetUrl']),
-    isActive: true
-  },
-  {
-    name: 'order_confirmation',
-    subject: 'Order Confirmation - #{{orderNumber}}',
-    body: `
-      <h2>Order Confirmation</h2>
-      <p>Hi {{firstName}},</p>
-      <p>Thank you for your order! Your order #{{orderNumber}} has been confirmed.</p>
-      <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
-        <h3>Order Details:</h3>
-        <p>Order Number: {{orderNumber}}</p>
-        <p>Order Date: {{orderDate}}</p>
-        <p>Total Amount: {{totalAmount}} {{currency}}</p>
-      </div>
-      <p>We'll send you another email when your order ships.</p>
-      <a href="{{orderUrl}}" style="background-color: #FF9800; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Order</a>
-      <p>Best regards,<br>Medical Devices Marketplace Team</p>
-    `,
-    variables: JSON.stringify(['firstName', 'orderNumber', 'orderDate', 'totalAmount', 'currency', 'orderUrl']),
-    isActive: true
-  },
-  {
-    name: 'order_shipped',
-    subject: 'Your Order Has Been Shipped - #{{orderNumber}}',
-    body: `
-      <h2>Order Shipped</h2>
-      <p>Hi {{firstName}},</p>
-      <p>Great news! Your order #{{orderNumber}} has been shipped.</p>
-      <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
-        <h3>Shipping Details:</h3>
-        <p>Tracking Number: {{trackingNumber}}</p>
-        <p>Carrier: {{carrier}}</p>
-        <p>Estimated Delivery: {{estimatedDelivery}}</p>
-      </div>
-      <a href="{{trackingUrl}}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Track Package</a>
-      <p>Best regards,<br>Medical Devices Marketplace Team</p>
-    `,
-    variables: JSON.stringify(['firstName', 'orderNumber', 'trackingNumber', 'carrier', 'estimatedDelivery', 'trackingUrl']),
-    isActive: true
-  },
-  {
-    name: 'maintenance_scheduled',
-    subject: 'Maintenance Scheduled - Request #{{requestNumber}}',
-    body: `
-      <h2>Maintenance Scheduled</h2>
-      <p>Hi {{firstName}},</p>
-      <p>Your maintenance request #{{requestNumber}} has been scheduled.</p>
-      <div style="border: 1px solid #ddd; padding: 15px; margin: 20px 0;">
-        <h3>Appointment Details:</h3>
-        <p>Date: {{scheduledDate}}</p>
-        <p>Time: {{scheduledTime}}</p>
-        <p>Engineer: {{engineerName}}</p>
-        <p>Equipment: {{equipmentName}}</p>
-      </div>
-      <p>Please ensure the equipment is accessible at the scheduled time.</p>
-      <p>Best regards,<br>Medical Devices Marketplace Team</p>
-    `,
-    variables: JSON.stringify(['firstName', 'requestNumber', 'scheduledDate', 'scheduledTime', 'engineerName', 'equipmentName']),
-    isActive: true
-  }
-];
+const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
 
-  try {
-    // Clean existing data in development
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🧹 Cleaning existing data...');
-      await prisma.$transaction([
-        prisma.emailTemplate.deleteMany(),
-        prisma.systemSetting.deleteMany(),
-        prisma.adminProfile.deleteMany(),
-        prisma.user.deleteMany(),
-      ]);
-    }
+  // Clear existing data
+  console.log('🧹 Clearing existing data...');
+  await prisma.$transaction([
+    prisma.chatMessage.deleteMany(),
+    prisma.chatParticipant.deleteMany(),
+    prisma.chatSession.deleteMany(),
+    prisma.cartItem.deleteMany(),
+    prisma.cart.deleteMany(),
+    prisma.wishlistItem.deleteMany(),
+    prisma.productAnswer.deleteMany(),
+    prisma.productQuestion.deleteMany(),
+    prisma.productReview.deleteMany(),
+    prisma.orderItem.deleteMany(),
+    prisma.payment.deleteMany(),
+    prisma.refund.deleteMany(),
+    prisma.shipment.deleteMany(),
+    prisma.shipping.deleteMany(),
+    prisma.invoice.deleteMany(),
+    prisma.order.deleteMany(),
+    prisma.rentalItem.deleteMany(),
+    prisma.rentalPayment.deleteMany(),
+    prisma.rentalAgreement.deleteMany(),
+    prisma.maintenanceRequest.deleteMany(),
+    prisma.supportTicket.deleteMany(),
+    prisma.notification.deleteMany(),
+    prisma.inventoryLog.deleteMany(),
+    prisma.priceHistory.deleteMany(),
+    prisma.rentalUnit.deleteMany(),
+    prisma.rentalDetails.deleteMany(),
+    prisma.salesDetails.deleteMany(),
+    prisma.product.deleteMany(),
+    prisma.uploadedFile.deleteMany(),
+    prisma.session.deleteMany(),
+    prisma.auditLog.deleteMany(),
+    prisma.verificationToken.deleteMany(),
+    prisma.passwordReset.deleteMany(),
+    prisma.adminProfile.deleteMany(),
+    prisma.customerServiceProfile.deleteMany(),
+    prisma.maintenanceEngineer.deleteMany(),
+    prisma.individualCustomer.deleteMany(),
+    prisma.healthcareProvider.deleteMany(),
+    prisma.equipmentSupplier.deleteMany(),
+    prisma.user.deleteMany(),
+    prisma.systemSetting.deleteMany(),
+    prisma.emailTemplate.deleteMany(),
+  ]);
 
-    // Create Super Admin
-    console.log('👤 Creating Super Admin...');
-    const hashedPassword = await bcrypt.hash(SUPER_ADMIN_CONFIG.password, 12);
-    
-    const superAdmin = await prisma.user.create({
-      data: {
-        email: SUPER_ADMIN_CONFIG.email,
-        passwordHash: hashedPassword,
-        firstName: SUPER_ADMIN_CONFIG.firstName,
-        lastName: SUPER_ADMIN_CONFIG.lastName,
-        phoneNumber: SUPER_ADMIN_CONFIG.phoneNumber,
-        userType: 'ADMIN',
-        status: 'ACTIVE',
-        verificationStatus: 'FULLY_VERIFIED',
-        emailVerifiedAt: new Date(),
-        adminProfile: {
-          create: {
-            role: 'SUPER_ADMIN',
-            permissions: [
-              'users.create',
-              'users.read',
-              'users.update',
-              'users.delete',
-              'products.create',
-              'products.read',
-              'products.update',
-              'products.delete',
-              'orders.create',
-              'orders.read',
-              'orders.update',
-              'orders.delete',
-              'payments.manage',
-              'settings.manage',
-              'reports.view',
-              'reports.export',
-              'system.configure',
-              'system.maintenance',
-              'analytics.view',
-              'support.manage',
-              'notifications.send',
-              'emails.manage',
-              'cache.manage',
-              'logs.view',
-              'audit.view',
-              'backup.manage'
-            ]
-          }
-        }
+  // Create users
+  console.log('👥 Creating users...');
+  
+  // Admin user
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'admin@medicaldevices.com',
+      passwordHash: await bcrypt.hash('admin123', 10),
+      firstName: 'Admin',
+      lastName: 'User',
+      phoneNumber: '+966501234567',
+      userType: 'ADMIN',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      adminProfile: {
+        create: {
+          permissions: ['all'],
+          role: 'SUPER_ADMIN',
+        },
       },
-      include: {
-        adminProfile: true
-      }
+    },
+  });
+
+  // Healthcare provider user
+  const healthcareUser = await prisma.user.create({
+    data: {
+      email: 'hospital@example.com',
+      passwordHash: await bcrypt.hash('hospital123', 10),
+      firstName: 'King Faisal',
+      lastName: 'Hospital',
+      phoneNumber: '+966502345678',
+      userType: 'HEALTHCARE_PROVIDER',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      healthcareProfile: {
+        create: {
+          organizationName: 'King Faisal Specialist Hospital',
+          organizationType: 'Hospital',
+          licenseNumber: 'KSA-HOSP-2024-001',
+          taxRegistrationNumber: 'TAX123456789',
+          numberOfBeds: 500,
+          yearEstablished: 1975,
+          address: {
+            street: '123 Medical District',
+            city: 'Riyadh',
+            state: 'Riyadh Province',
+            country: 'Saudi Arabia',
+            postalCode: '11211',
+          },
+          specializations: ['Cardiology', 'Oncology', 'Neurology', 'Pediatrics'],
+          certifications: ['JCI Accredited', 'ISO 9001:2015'],
+        },
+      },
+    },
+  });
+
+  // Equipment supplier users
+  const supplier1 = await prisma.user.create({
+    data: {
+      email: 'supplier1@example.com',
+      passwordHash: await bcrypt.hash('supplier123', 10),
+      firstName: 'MedTech',
+      lastName: 'Solutions',
+      phoneNumber: '+966503456789',
+      userType: 'EQUIPMENT_SUPPLIER',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      supplierProfile: {
+        create: {
+          companyName: 'MedTech Solutions Ltd',
+          businessRegistrationNumber: 'CR-2024-001',
+          taxId: 'TAX987654321',
+          yearEstablished: 2010,
+          numberOfEmployees: 150,
+          address: {
+            street: '456 Business Park',
+            city: 'Jeddah',
+            state: 'Makkah Province',
+            country: 'Saudi Arabia',
+            postalCode: '21442',
+          },
+          productCategories: ['DIAGNOSTIC', 'MONITORING', 'IMAGING'],
+          certifications: ['ISO 13485:2016', 'FDA Registered'],
+          brands: ['Siemens', 'GE Healthcare', 'Philips'],
+          verified: true,
+          verifiedAt: new Date(),
+          rating: 4.5,
+        },
+      },
+    },
+  });
+
+  const supplier2 = await prisma.user.create({
+    data: {
+      email: 'supplier2@example.com',
+      passwordHash: await bcrypt.hash('supplier123', 10),
+      firstName: 'Saudi Medical',
+      lastName: 'Equipment',
+      phoneNumber: '+966504567890',
+      userType: 'EQUIPMENT_SUPPLIER',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      supplierProfile: {
+        create: {
+          companyName: 'Saudi Medical Equipment Co',
+          businessRegistrationNumber: 'CR-2024-002',
+          taxId: 'TAX456789123',
+          yearEstablished: 2015,
+          numberOfEmployees: 75,
+          address: {
+            street: '789 Industrial Area',
+            city: 'Dammam',
+            state: 'Eastern Province',
+            country: 'Saudi Arabia',
+            postalCode: '31441',
+          },
+          productCategories: ['SURGICAL', 'EMERGENCY', 'LABORATORY'],
+          certifications: ['ISO 9001:2015', 'CE Marked'],
+          brands: ['3M', 'Johnson & Johnson', 'Medtronic'],
+          verified: true,
+          verifiedAt: new Date(),
+          rating: 4.2,
+        },
+      },
+    },
+  });
+
+  // Individual customer
+  const customerUser = await prisma.user.create({
+    data: {
+      email: 'customer@example.com',
+      passwordHash: await bcrypt.hash('customer123', 10),
+      firstName: 'Ahmed',
+      lastName: 'Al-Rashid',
+      phoneNumber: '+966505678901',
+      userType: 'INDIVIDUAL_CUSTOMER',
+      status: 'ACTIVE',
+      verificationStatus: 'EMAIL_VERIFIED',
+      emailVerifiedAt: new Date(),
+      individualProfile: {
+        create: {
+          dateOfBirth: new Date('1985-06-15'),
+          gender: 'Male',
+          address: {
+            street: '321 Residential St',
+            city: 'Riyadh',
+            state: 'Riyadh Province',
+            country: 'Saudi Arabia',
+            postalCode: '11564',
+          },
+          preferences: {
+            language: 'ar',
+            currency: 'SAR',
+            notifications: true,
+          },
+        },
+      },
+    },
+  });
+
+  // Maintenance engineer
+  const engineerUser = await prisma.user.create({
+    data: {
+      email: 'engineer@example.com',
+      passwordHash: await bcrypt.hash('engineer123', 10),
+      firstName: 'Mohammed',
+      lastName: 'Al-Engineer',
+      phoneNumber: '+966506789012',
+      userType: 'MAINTENANCE_ENGINEER',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      engineerProfile: {
+        create: {
+          certificationNumber: 'ENG-2024-001',
+          experienceYears: 10,
+          hourlyRate: 150,
+          availability: 'AVAILABLE',
+          specializations: ['MRI Machines', 'CT Scanners', 'X-Ray Equipment'],
+          certifications: ['Siemens Certified', 'GE Healthcare Certified'],
+          serviceAreas: ['Riyadh', 'Jeddah', 'Dammam'],
+          rating: 4.8,
+          completedJobs: 245,
+        },
+      },
+    },
+  });
+
+  // Customer service representative
+  const csUser = await prisma.user.create({
+    data: {
+      email: 'support@medicaldevices.com',
+      passwordHash: await bcrypt.hash('support123', 10),
+      firstName: 'Support',
+      lastName: 'Team',
+      phoneNumber: '+966507890123',
+      userType: 'CUSTOMER_SERVICE',
+      status: 'ACTIVE',
+      verificationStatus: 'FULLY_VERIFIED',
+      emailVerifiedAt: new Date(),
+      customerServiceProfile: {
+        create: {
+          employeeId: 'CS-001',
+          department: 'Customer Support',
+          extensionNumber: '1234',
+          shift: 'MORNING',
+        },
+      },
+    },
+  });
+
+  console.log('✅ Users created');
+
+  // Get supplier profiles
+  const supplierProfiles = await prisma.equipmentSupplier.findMany();
+  const [supplierProfile1, supplierProfile2] = supplierProfiles;
+
+  // Create products
+  console.log('📦 Creating products...');
+  
+  const products = [
+    // Diagnostic Equipment
+    {
+      supplierId: supplierProfile1.id,
+      name: 'Digital Blood Pressure Monitor',
+      nameAr: 'جهاز قياس ضغط الدم الرقمي',
+      description: 'Professional-grade digital blood pressure monitor with advanced accuracy and connectivity features. Suitable for clinical and home use.',
+      descriptionAr: 'جهاز قياس ضغط الدم الرقمي بدقة متقدمة وميزات الاتصال. مناسب للاستخدام السريري والمنزلي.',
+      sku: `BP-MON-${Date.now()}-001`,
+      barcode: '1234567890123',
+      category: 'DIAGNOSTIC',
+      subcategory: 'Vital Signs Monitors',
+      brand: 'Omron',
+      model: 'HEM-7361T',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'SALE',
+      price: 299.99,
+      compareAtPrice: 399.99,
+      quantity: 50,
+      images: [
+        'https://images.unsplash.com/photo-1584515933487-779824d29309?w=400',
+        'https://images.unsplash.com/photo-1631815588090-d4bfec5b1ccb?w=400',
+      ],
+      specifications: {
+        dimensions: '105 x 152 x 87 mm',
+        weight: '250g',
+        powerSupply: '4 AA batteries or AC adapter',
+        memoryCapacity: '100 readings x 2 users',
+        connectivity: 'Bluetooth 5.0',
+        cuffSize: '22-42 cm',
+      },
+      features: [
+        'Irregular heartbeat detection',
+        'Average of last 3 readings',
+        'Morning hypertension indicator',
+        'Body movement detection',
+        'Cuff wrap guide',
+      ],
+      certifications: ['FDA Approved', 'CE Marked', 'ISO 13485'],
+      warrantyPeriod: 24,
+      isPublished: true,
+      publishedAt: new Date(),
+      featured: true,
+    },
+    {
+      supplierId: supplierProfile1.id,
+      name: 'Portable ECG Machine',
+      nameAr: 'جهاز تخطيط القلب المحمول',
+      description: '12-lead portable ECG machine with advanced interpretation software and wireless connectivity.',
+      descriptionAr: 'جهاز تخطيط القلب المحمول بـ 12 قناة مع برامج تفسير متقدمة واتصال لاسلكي.',
+      sku: `ECG-${Date.now()}-002`,
+      category: 'DIAGNOSTIC',
+      subcategory: 'Cardiac Equipment',
+      brand: 'GE Healthcare',
+      model: 'MAC 2000',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'BOTH',
+      price: 4999.99,
+      compareAtPrice: 5999.99,
+      quantity: 15,
+      images: [
+        'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400',
+      ],
+      specifications: {
+        channels: '12-lead',
+        display: '7" color touchscreen',
+        battery: 'Lithium-ion, 4 hours continuous',
+        connectivity: 'WiFi, Ethernet, USB',
+        storage: '200 ECG records',
+      },
+      features: [
+        'Automatic interpretation',
+        'Pediatric and adult algorithms',
+        'Wireless data transmission',
+        'EMR integration',
+      ],
+      certifications: ['FDA Approved', 'CE Marked'],
+      warrantyPeriod: 36,
+      isPublished: true,
+      publishedAt: new Date(),
+    },
+    // Surgical Equipment
+    {
+      supplierId: supplierProfile2.id,
+      name: 'Surgical LED Light System',
+      nameAr: 'نظام إضاءة جراحي LED',
+      description: 'Advanced surgical LED light system with shadow management technology and adjustable color temperature.',
+      descriptionAr: 'نظام إضاءة جراحي متقدم LED مع تقنية إدارة الظلال ودرجة حرارة لون قابلة للتعديل.',
+      sku: `LED-SURG-${Date.now()}-003`,
+      category: 'SURGICAL',
+      subcategory: 'Operating Room Lights',
+      brand: 'Stryker',
+      model: 'Visum LED',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'SALE',
+      price: 15999.99,
+      quantity: 8,
+      images: [
+        'https://images.unsplash.com/photo-1581595220892-b0739db3ba8c?w=400',
+      ],
+      specifications: {
+        illuminance: '160,000 lux',
+        colorTemperature: '3500K - 5000K adjustable',
+        colorRenderingIndex: 'Ra ≥ 95',
+        fieldDiameter: '14-28 cm adjustable',
+        serviceLife: '60,000 hours',
+      },
+      features: [
+        'Shadow dilution technology',
+        'Touchless control',
+        'Integrated HD camera option',
+        'Emergency battery backup',
+      ],
+      certifications: ['FDA Approved', 'CE Marked', 'IEC 60601'],
+      warrantyPeriod: 60,
+      isPublished: true,
+      publishedAt: new Date(),
+    },
+    // Imaging Equipment
+    {
+      supplierId: supplierProfile1.id,
+      name: 'Portable Ultrasound System',
+      nameAr: 'نظام الموجات فوق الصوتية المحمول',
+      description: 'Compact, portable ultrasound system with advanced imaging capabilities for point-of-care diagnostics.',
+      descriptionAr: 'نظام محمول مدمج للموجات فوق الصوتية مع قدرات تصوير متقدمة للتشخيص في نقطة الرعاية.',
+      sku: `US-PORT-${Date.now()}-004`,
+      category: 'IMAGING',
+      subcategory: 'Ultrasound',
+      brand: 'Philips',
+      model: 'Lumify',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'BOTH',
+      price: 7999.99,
+      quantity: 20,
+      images: [
+        'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400',
+      ],
+      specifications: {
+        probes: 'Linear, Curved, Phased array',
+        display: 'Compatible with tablets/smartphones',
+        battery: '3 hours continuous scanning',
+        connectivity: 'WiFi, USB-C',
+        weight: '390g per probe',
+      },
+      features: [
+        'Real-time image sharing',
+        'Cloud storage',
+        'AI-assisted measurements',
+        'Telemedicine ready',
+      ],
+      certifications: ['FDA Approved', 'CE Marked'],
+      warrantyPeriod: 24,
+      isPublished: true,
+      publishedAt: new Date(),
+      featured: true,
+    },
+    // Laboratory Equipment
+    {
+      supplierId: supplierProfile2.id,
+      name: 'Automated Blood Analyzer',
+      nameAr: 'محلل دم آلي',
+      description: 'High-throughput automated hematology analyzer with 5-part differential and advanced flagging capabilities.',
+      descriptionAr: 'محلل دم آلي عالي الإنتاجية مع تفريق 5 أجزاء وقدرات وضع علامات متقدمة.',
+      sku: `HEMA-${Date.now()}-005`,
+      category: 'LABORATORY',
+      subcategory: 'Hematology',
+      brand: 'Sysmex',
+      model: 'XN-550',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'SALE',
+      price: 45999.99,
+      quantity: 5,
+      images: [
+        'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=400',
+      ],
+      specifications: {
+        throughput: '60 samples/hour',
+        parameters: '31 reportable + 51 research',
+        sampleVolume: '20 μL',
+        methodology: 'Fluorescence flow cytometry',
+        connectivity: 'LIS ready, bidirectional',
+      },
+      features: [
+        'Body fluid mode',
+        'Low WBC mode',
+        'Automated quality control',
+        'Reflex testing capability',
+      ],
+      certifications: ['FDA Approved', 'CE-IVD Marked'],
+      warrantyPeriod: 24,
+      isPublished: true,
+      publishedAt: new Date(),
+    },
+    // Emergency Equipment
+    {
+      supplierId: supplierProfile2.id,
+      name: 'Automated External Defibrillator',
+      nameAr: 'جهاز مزيل الرجفان الخارجي الآلي',
+      description: 'Compact AED with real-time CPR feedback and clear voice instructions for emergency cardiac care.',
+      descriptionAr: 'جهاز AED مدمج مع ملاحظات CPR في الوقت الفعلي وتعليمات صوتية واضحة لرعاية القلب الطارئة.',
+      sku: `AED-${Date.now()}-006`,
+      category: 'EMERGENCY',
+      subcategory: 'Resuscitation',
+      brand: 'ZOLL',
+      model: 'AED Plus',
+      condition: 'NEW',
+      status: 'ACTIVE',
+      availabilityType: 'SALE',
+      price: 1499.99,
+      compareAtPrice: 1899.99,
+      quantity: 30,
+      images: [
+        'https://images.unsplash.com/photo-1563213126-a4273aed2016?w=400',
+      ],
+      specifications: {
+        waveform: 'Rectilinear Biphasic',
+        energySequence: '120J, 150J, 200J',
+        chargingTime: '<10 seconds',
+        batteryLife: '5 years standby',
+        weight: '3.1 kg',
+      },
+      features: [
+        'Real CPR Help technology',
+        'Pediatric capability',
+        'Self-test function',
+        'IP55 dust/water resistant',
+      ],
+      certifications: ['FDA Approved', 'CE Marked'],
+      warrantyPeriod: 60,
+      isPublished: true,
+      publishedAt: new Date(),
+      featured: true,
+    },
+  ];
+
+  for (const productData of products) {
+    const product = await prisma.product.create({
+      data: {
+        ...productData,
+        salesDetails: {
+          create: {
+            basePrice: productData.price,
+            discountedPrice: productData.compareAtPrice ? productData.price : null,
+            minOrderQuantity: 1,
+            isActive: true,
+          },
+        },
+        ...(productData.availabilityType === 'BOTH' || productData.availabilityType === 'RENT' ? {
+          rentalDetails: {
+            create: {
+              dailyRate: Math.round(productData.price * 0.05),
+              weeklyRate: Math.round(productData.price * 0.25),
+              monthlyRate: Math.round(productData.price * 0.80),
+              securityDeposit: Math.round(productData.price * 0.50),
+              minimumRentalPeriod: 1,
+              isAvailable: true,
+            },
+          },
+        } : {}),
+      },
     });
 
-    console.log(`✅ Super Admin created: ${superAdmin.email}`);
-
-    // Create System Settings
-    console.log('⚙️ Creating system settings...');
-    for (const setting of DEFAULT_SYSTEM_SETTINGS) {
-      await prisma.systemSetting.create({
-        data: setting
-      });
-    }
-    console.log(`✅ Created ${DEFAULT_SYSTEM_SETTINGS.length} system settings`);
-
-    // Create Email Templates
-    console.log('📧 Creating email templates...');
-    for (const template of EMAIL_TEMPLATES) {
-      await prisma.emailTemplate.create({
-        data: template
-      });
-    }
-    console.log(`✅ Created ${EMAIL_TEMPLATES.length} email templates`);
-
-    // Create demo data in development
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('🎭 Creating demo data...');
-      
-      // Create demo supplier
-      const demoSupplierPassword = await bcrypt.hash('Demo@2024!', 12);
-      const demoSupplier = await prisma.user.create({
-        data: {
-          email: 'supplier@demo.com',
-          passwordHash: demoSupplierPassword,
-          firstName: 'Demo',
-          lastName: 'Supplier',
-          phoneNumber: '+966501234567',
-          userType: 'EQUIPMENT_SUPPLIER',
-          status: 'ACTIVE',
-          verificationStatus: 'FULLY_VERIFIED',
-          emailVerifiedAt: new Date(),
-          supplierProfile: {
-            create: {
-              companyName: 'MedTech Solutions',
-              businessRegistrationNumber: 'CR123456789',
-              taxId: 'TAX123456',
-              yearEstablished: 2015,
-              numberOfEmployees: 50,
-              website: 'https://medtech-solutions.com',
-              address: {
-                street: '123 Medical District',
-                city: 'Riyadh',
-                state: 'Riyadh Province',
-                country: 'Saudi Arabia',
-                postalCode: '11564'
-              },
-              productCategories: ['DIAGNOSTIC', 'MONITORING', 'SURGICAL'],
-              certifications: [
-                { name: 'ISO 13485', issuer: 'ISO', year: 2020 },
-                { name: 'CE Mark', issuer: 'EU', year: 2021 }
-              ],
-              brands: ['Siemens', 'GE Healthcare', 'Philips'],
-              verified: true,
-              verifiedAt: new Date(),
-              rating: 4.5
-            }
-          }
-        },
-        include: {
-          supplierProfile: true
-        }
-      });
-
-      // Create demo products
-      const productData = [
-        {
-          supplierId: demoSupplier.supplierProfile!.id,
-          name: 'Digital X-Ray System',
-          nameAr: 'نظام الأشعة السينية الرقمي',
-          description: 'High-resolution digital X-ray system with advanced imaging capabilities. Features include automated exposure control, image enhancement software, and DICOM compatibility.',
-          descriptionAr: 'نظام أشعة سينية رقمي عالي الدقة مع قدرات تصوير متقدمة',
-          sku: 'DXR-2024-001',
-          barcode: '1234567890123',
-          category: 'IMAGING',
-          condition: 'NEW',
-          status: 'ACTIVE',
-          price: 45000,
-          compareAtPrice: 50000,
-          costPrice: 35000,
-          currency: 'USD',
-          quantity: 5,
-          minOrderQuantity: 1,
-          weight: 250,
-          dimensions: { length: 200, width: 150, height: 180 },
-          images: [
-            '/images/products/xray-system-1.jpg',
-            '/images/products/xray-system-2.jpg'
-          ],
-          specifications: {
-            'Power Requirements': '220V, 50/60Hz',
-            'Detector Size': '43cm x 43cm',
-            'Resolution': '3.5 lp/mm',
-            'Exposure Range': '40-150 kVp'
-          },
-          features: [
-            'Automated exposure control',
-            'Touch screen interface',
-            'DICOM 3.0 compatible',
-            'Wireless detector option'
-          ],
-          certifications: ['FDA', 'CE', 'SFDA'],
-          warrantyPeriod: 24,
-          isFeatured: true,
-          isPublished: true,
-          publishedAt: new Date()
-        },
-        {
-          supplierId: demoSupplier.supplierProfile!.id,
-          name: 'Patient Monitor Pro',
-          nameAr: 'جهاز مراقبة المريض الاحترافي',
-          description: 'Multi-parameter patient monitor with ECG, SpO2, NIBP, temperature, and respiration monitoring. 15-inch touchscreen display with customizable alarms.',
-          descriptionAr: 'جهاز مراقبة المريض متعدد المعايير',
-          sku: 'PMO-2024-002',
-          barcode: '1234567890124',
-          category: 'MONITORING',
-          condition: 'NEW',
-          status: 'ACTIVE',
-          price: 8500,
-          compareAtPrice: 9500,
-          costPrice: 6500,
-          currency: 'USD',
-          quantity: 15,
-          minOrderQuantity: 1,
-          weight: 8.5,
-          dimensions: { length: 40, width: 35, height: 45 },
-          images: [
-            '/images/products/patient-monitor-1.jpg',
-            '/images/products/patient-monitor-2.jpg'
-          ],
-          specifications: {
-            'Display': '15-inch TFT touchscreen',
-            'Parameters': 'ECG, SpO2, NIBP, Temp, Resp',
-            'Battery Life': '4 hours',
-            'Data Storage': '72 hours trending'
-          },
-          features: [
-            'Multi-parameter monitoring',
-            'Touchscreen interface',
-            'Wireless connectivity',
-            'Central monitoring compatible'
-          ],
-          certifications: ['FDA', 'CE', 'SFDA'],
-          warrantyPeriod: 12,
-          isFeatured: true,
-          isPublished: true,
-          publishedAt: new Date()
-        },
-        {
-          supplierId: demoSupplier.supplierProfile!.id,
-          name: 'Surgical LED Light',
-          nameAr: 'مصباح جراحي LED',
-          description: 'Advanced LED surgical light with adjustable intensity and color temperature. Shadow-free illumination with excellent color rendering.',
-          descriptionAr: 'مصباح جراحي LED متقدم',
-          sku: 'SLL-2024-003',
-          barcode: '1234567890125',
-          category: 'SURGICAL',
-          condition: 'NEW',
-          status: 'ACTIVE',
-          price: 12000,
-          compareAtPrice: 14000,
-          costPrice: 9000,
-          currency: 'USD',
-          quantity: 8,
-          minOrderQuantity: 1,
-          weight: 85,
-          dimensions: { length: 70, width: 70, height: 200 },
-          images: [
-            '/images/products/surgical-light-1.jpg',
-            '/images/products/surgical-light-2.jpg'
-          ],
-          specifications: {
-            'Light Intensity': '160,000 Lux',
-            'Color Temperature': '3500-5000K',
-            'CRI': '>95',
-            'LED Life': '60,000 hours'
-          },
-          features: [
-            'Shadow-free illumination',
-            'Adjustable color temperature',
-            'Sterile handle covers',
-            'Camera integration ready'
-          ],
-          certifications: ['FDA', 'CE', 'IEC 60601'],
-          warrantyPeriod: 36,
-          isPublished: true,
-          publishedAt: new Date()
-        }
-      ];
-
-      for (const product of productData) {
-        await prisma.product.create({ data: product });
-      }
-      console.log(`✅ Created ${productData.length} demo products`);
-
-      // Create demo healthcare provider
-      const demoProviderPassword = await bcrypt.hash('Demo@2024!', 12);
-      await prisma.user.create({
-        data: {
-          email: 'hospital@demo.com',
-          passwordHash: demoProviderPassword,
-          firstName: 'King',
-          lastName: 'Hospital',
-          phoneNumber: '+966502345678',
-          userType: 'HEALTHCARE_PROVIDER',
-          status: 'ACTIVE',
-          verificationStatus: 'FULLY_VERIFIED',
-          emailVerifiedAt: new Date(),
-          healthcareProfile: {
-            create: {
-              organizationName: 'King Medical Center',
-              organizationType: 'Hospital',
-              licenseNumber: 'HLC987654321',
-              taxRegistrationNumber: 'TAX987654',
-              numberOfBeds: 500,
-              yearEstablished: 1990,
-              emergencyContact: '+966509999999',
-              website: 'https://king-medical.sa',
-              address: {
-                street: '456 Healthcare Avenue',
-                city: 'Jeddah',
-                state: 'Makkah Province',
-                country: 'Saudi Arabia',
-                postalCode: '21589'
-              },
-              specializations: [
-                'Cardiology',
-                'Neurology',
-                'Orthopedics',
-                'Emergency Medicine'
-              ],
-              certifications: [
-                { name: 'JCI Accreditation', issuer: 'JCI', year: 2022 },
-                { name: 'CBAHI', issuer: 'CBAHI', year: 2023 }
-              ],
-              operatingHours: {
-                monday: { open: '00:00', close: '23:59' },
-                tuesday: { open: '00:00', close: '23:59' },
-                wednesday: { open: '00:00', close: '23:59' },
-                thursday: { open: '00:00', close: '23:59' },
-                friday: { open: '00:00', close: '23:59' },
-                saturday: { open: '00:00', close: '23:59' },
-                sunday: { open: '00:00', close: '23:59' }
-              }
-            }
-          }
-        }
-      });
-
-      console.log('✅ Demo data created successfully');
-    }
-
-    console.log('🎉 Database seed completed successfully!');
-    console.log('\n📝 Super Admin Credentials:');
-    console.log(`   Email: ${SUPER_ADMIN_CONFIG.email}`);
-    console.log(`   Password: ${SUPER_ADMIN_CONFIG.password}`);
-    console.log('\n⚠️  Please change the super admin password after first login!');
-
-  } catch (error) {
-    console.error('❌ Error seeding database:', error);
-    throw error;
-  } finally {
-    await prisma.$disconnect();
+    // Create initial inventory log
+    await prisma.inventoryLog.create({
+      data: {
+        productId: product.id,
+        type: 'IN',
+        quantity: product.quantity,
+        balance: product.quantity,
+        reason: 'Initial stock',
+        performedBy: adminUser.id,
+      },
+    });
   }
+
+  console.log('✅ Products created');
+
+  // Create carts for users
+  console.log('🛒 Creating carts...');
+  
+  await prisma.cart.create({
+    data: {
+      userId: healthcareUser.id,
+    },
+  });
+
+  await prisma.cart.create({
+    data: {
+      userId: customerUser.id,
+    },
+  });
+
+  console.log('✅ Carts created');
+
+  // Create system settings
+  console.log('⚙️ Creating system settings...');
+  
+  const settings = [
+    {
+      key: 'site.name',
+      value: { en: 'Medical Devices Marketplace', ar: 'سوق الأجهزة الطبية' },
+      type: 'JSON',
+      description: 'Site name in multiple languages',
+    },
+    {
+      key: 'site.currency',
+      value: { default: 'USD', supported: ['USD', 'SAR', 'AED', 'EUR'] },
+      type: 'JSON',
+      description: 'Currency settings',
+    },
+    {
+      key: 'shipping.free.threshold',
+      value: { amount: 500 },
+      type: 'JSON',
+      description: 'Free shipping threshold',
+    },
+    {
+      key: 'tax.rate',
+      value: { rate: 0.15 },
+      type: 'JSON',
+      description: 'Default tax rate (15% VAT)',
+    },
+  ];
+
+  for (const setting of settings) {
+    await prisma.systemSetting.create({ data: setting });
+  }
+
+  console.log('✅ System settings created');
+
+  // Create email templates
+  console.log('📧 Creating email templates...');
+  
+  await prisma.emailTemplate.create({
+    data: {
+      name: 'order_confirmation',
+      subject: 'Order Confirmation - {{orderNumber}}',
+      body: 'Thank you for your order!',
+      variables: ['orderNumber', 'customerName', 'items', 'total'],
+      isActive: true,
+    },
+  });
+
+  await prisma.emailTemplate.create({
+    data: {
+      name: 'welcome_email',
+      subject: 'Welcome to Medical Devices Marketplace',
+      body: 'Welcome {{name}}!',
+      variables: ['name', 'email'],
+      isActive: true,
+    },
+  });
+
+  console.log('✅ Email templates created');
+
+  console.log('✨ Database seed completed successfully!');
+  
+  // Print login credentials
+  console.log('\n📝 Login Credentials:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('Admin:');
+  console.log('  Email: admin@medicaldevices.com');
+  console.log('  Password: admin123');
+  console.log('\nHealthcare Provider:');
+  console.log('  Email: hospital@example.com');
+  console.log('  Password: hospital123');
+  console.log('\nSupplier 1:');
+  console.log('  Email: supplier1@example.com');
+  console.log('  Password: supplier123');
+  console.log('\nSupplier 2:');
+  console.log('  Email: supplier2@example.com');
+  console.log('  Password: supplier123');
+  console.log('\nCustomer:');
+  console.log('  Email: customer@example.com');
+  console.log('  Password: customer123');
+  console.log('\nMaintenance Engineer:');
+  console.log('  Email: engineer@example.com');
+  console.log('  Password: engineer123');
+  console.log('\nCustomer Service:');
+  console.log('  Email: support@medicaldevices.com');
+  console.log('  Password: support123');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Error seeding database:', e);
     process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
   });
