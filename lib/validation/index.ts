@@ -142,11 +142,24 @@ export function createValidatedHandler<TParams, TQuery, TBody>(
  */
 export function sanitizeInput(input: any): any {
   if (typeof input === 'string') {
-    // Remove potential XSS vectors
-    return input
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/<[^>]+>/g, '')
-      .trim();
+    // Remove potential XSS vectors using DOMPurify approach
+    // First, escape HTML entities
+    const escapeHtml = (str: string) => {
+      const div = typeof document !== 'undefined' ? document.createElement('div') : null;
+      if (div) {
+        div.textContent = str;
+        return div.innerHTML;
+      }
+      // Fallback for server-side
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
+    
+    return escapeHtml(input.trim());
   }
   
   if (Array.isArray(input)) {

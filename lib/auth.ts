@@ -29,6 +29,7 @@ export async function requireRole(allowedRoles: UserType[]) {
     return new NextResponse("Unauthorized", { status: 401 })
   }
   
+  // user.role is set in the session callback from user.userType
   if (!allowedRoles.includes(user.role as UserType)) {
     return new NextResponse("Forbidden", { status: 403 })
   }
@@ -38,20 +39,24 @@ export async function requireRole(allowedRoles: UserType[]) {
 
 export async function isAdmin() {
   const user = await getCurrentUser()
+  // user.role is set in the session callback from user.userType
   return user?.role === UserType.ADMIN
 }
 
 export async function isSupplier() {
   const user = await getCurrentUser()
+  // user.role is set in the session callback from user.userType
   return user?.role === UserType.EQUIPMENT_SUPPLIER
 }
 
 export async function isHealthcareProvider() {
   const user = await getCurrentUser()
+  // user.role is set in the session callback from user.userType
   return user?.role === UserType.HEALTHCARE_PROVIDER
 }
 
 export async function isCustomerService() {
   const user = await getCurrentUser()
+  // user.role is set in the session callback from user.userType
   return user?.role === UserType.CUSTOMER_SERVICE
 }

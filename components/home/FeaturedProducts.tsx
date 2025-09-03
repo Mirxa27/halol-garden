@@ -31,7 +31,7 @@ export function FeaturedProducts({ locale }: { locale: string }) {
         const response = await fetch('/api/products?featured=true&limit=6');
         const data = await response.json();
         if (data.success) {
-          setProducts(data.products);
+          setProducts(data.data); // API returns data under 'data' property
         }
       } catch (error) {
         console.error('Error fetching featured products:', error);

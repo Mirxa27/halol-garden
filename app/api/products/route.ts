@@ -14,6 +14,7 @@ const productQuerySchema = z.object({
   maxPrice: z.string().optional().transform(val => parseFloat(val || '999999')),
   condition: z.enum(['NEW', 'REFURBISHED', 'USED_EXCELLENT', 'USED_GOOD', 'USED_FAIR']).optional(),
   availabilityType: z.enum(['SALE', 'RENT', 'BOTH']).optional(),
+  featured: z.string().optional().transform(val => val === 'true'),
   sortBy: z.enum(['price', 'name', 'rating', 'createdAt']).optional().default('createdAt'),
   sortOrder: z.enum(['asc', 'desc']).optional().default('desc'),
 });
@@ -83,6 +84,10 @@ export async function GET(request: NextRequest) {
         { brand: { contains: validatedQuery.search, mode: 'insensitive' } },
         { model: { contains: validatedQuery.search, mode: 'insensitive' } },
       ];
+    }
+
+    if (validatedQuery.featured) {
+      where.featured = true;
     }
 
     // Build order by clause
