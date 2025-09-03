@@ -431,12 +431,174 @@ export class AuthService {
   }
 
   /**
+   * Enable two-factor authentication
+   */
+  static async enableTwoFactor(userId: string): Promise<{ secret: string; qrCode: string }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, twoFactorSecret: true }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Generate secret
+    const secret = speakeasy.generateSecret({
+      name: `Medical Devices (${user.email})`,
+      issuer: 'Medical Devices Marketplace'
+    });
+
+    // Save encrypted secret to database
+    const encryptedSecret = this.encryptData(secret.base32);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { twoFactorSecret: encryptedSecret }
+    });
+
+    // Generate QR code
+    const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
+
+    return {
+      secret: secret.base32,
+      qrCode
+    };
+  }
+
+  /**
    * Verify two-factor code
    */
   static async verifyTwoFactor(userId: string, code: string): Promise<boolean> {
-    // Implementation would depend on the 2FA library used
-    // This is a placeholder
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { twoFactorSecret: true, twoFactorEnabled: true }
+    });
+
+    if (!user || !user.twoFactorSecret) {
+      return false;
+    }
+
+    // Decrypt secret
+    const decryptedSecret = this.decryptData(user.twoFactorSecret);
+
+    // Verify token
+    const verified = speakeasy.totp.verify({
+      secret: decryptedSecret,
+      encoding: 'base32',
+      token: code,
+      window: 2 // Allow 2 time steps for clock drift
+    });
+
+    // If verifying for first time, enable 2FA
+    if (verified && !user.twoFactorEnabled) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { twoFactorEnabled: true }
+      });
+    }
+
+    return verified;
+  }
+
+  /**
+   * Disable two-factor authentication
+   */
+  static async disableTwoFactor(userId: string, password: string): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
+      throw new Error('Invalid password');
+    }
+
+    // Disable 2FA
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null
+      }
+    });
+
     return true;
+  }
+
+  /**
+   * Generate backup codes
+   */
+  static async generateBackupCodes(userId: string): Promise<string[]> {
+    const codes: string[] = [];
+    
+    for (let i = 0; i < 10; i++) {
+      const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+      codes.push(`${code.slice(0, 4)}-${code.slice(4)}`);
+    }
+
+    // Store hashed backup codes
+    const hashedCodes = await Promise.all(
+      codes.map(code => bcrypt.hash(code, 10))
+    );
+
+    // Store in database (you might want to add a BackupCode model)
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        // Store as JSON in user model or create separate table
+        backupCodes: hashedCodes
+      }
+    });
+
+    return codes;
+  }
+
+  /**
+   * Encrypt sensitive data
+   */
+  private static encryptData(text: string): string {
+    const algorithm = 'aes-256-cbc';
+    const key = crypto.scryptSync(
+      process.env.ENCRYPTION_KEY || 'default-encryption-key',
+      'salt',
+      32
+    );
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    return iv.toString('hex') + ':' + encrypted;
+  }
+
+  /**
+   * Decrypt sensitive data
+   */
+  private static decryptData(text: string): string {
+    const algorithm = 'aes-256-cbc';
+    const key = crypto.scryptSync(
+      process.env.ENCRYPTION_KEY || 'default-encryption-key',
+      'salt',
+      32
+    );
+    
+    const parts = text.split(':');
+    const iv = Buffer.from(parts[0], 'hex');
+    const encryptedText = parts[1];
+    
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    
+    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
   }
 
   // Helper methods
