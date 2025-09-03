@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, Truck, Shield, CreditCard } from 'lucide-react';
-// import { auth } from 'next-auth';
+import { getCartItems, getCartTotals } from '@/lib/cart-server';
 
 export const metadata: Metadata = {
   title: 'Shopping Cart | Medical Devices Marketplace',
@@ -13,52 +13,11 @@ export const metadata: Metadata = {
 };
 
 export default async function CartPage() {
-  // const session = await auth();
+  // Fetch actual cart items from database
+  const cartItems = await getCartItems();
   
-  // Fetch cart items (mock data for now)
-  const cartItems = [
-    {
-      id: '1',
-      productId: 'prod-1',
-      name: 'Digital Blood Pressure Monitor',
-      nameAr: 'جهاز قياس ضغط الدم الرقمي',
-      price: 89.99,
-      quantity: 2,
-      image: '/images/products/bp-monitor.jpg',
-      sku: 'BPM-2024-001',
-      inStock: true,
-      supplier: 'MedTech Solutions',
-    },
-    {
-      id: '2',
-      productId: 'prod-2',
-      name: 'Pulse Oximeter Pro',
-      nameAr: 'جهاز قياس الأكسجين',
-      price: 45.50,
-      quantity: 1,
-      image: '/images/products/pulse-oximeter.jpg',
-      sku: 'POX-2024-002',
-      inStock: true,
-      supplier: 'HealthCare Innovations',
-    },
-    {
-      id: '3',
-      productId: 'prod-3',
-      name: 'Digital Thermometer',
-      nameAr: 'ميزان حرارة رقمي',
-      price: 25.00,
-      quantity: 3,
-      image: '/images/products/thermometer.jpg',
-      sku: 'THM-2024-003',
-      inStock: true,
-      supplier: 'Medical Supplies Co',
-    },
-  ];
-
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.15; // 15% VAT
-  const shipping = subtotal > 500 ? 0 : 25;
-  const total = subtotal + tax + shipping;
+  // Calculate totals
+  const { subtotal, tax, shipping, total } = await getCartTotals(cartItems);
 
   return (
     <div className="container mx-auto px-4 py-8">

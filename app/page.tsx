@@ -8,6 +8,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FeaturedProducts } from '@/components/home/FeaturedProducts';
 import { 
   ShieldCheck, Truck, Clock, Users, 
   Package, Wrench, Heart, Star,
@@ -27,39 +28,7 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const t = await getTranslations();
 
-  // Mock data - would come from API
-  const featuredProducts = [
-    {
-      id: '1',
-      name: 'MRI Scanner ProMax',
-      nameAr: 'جهاز الرنين المغناطيسي بروماكس',
-      price: 450000,
-      image: '/images/products/mri-scanner.jpg',
-      category: 'DIAGNOSTIC',
-      rating: 4.8,
-      supplier: 'MedTech Solutions',
-    },
-    {
-      id: '2',
-      name: 'Surgical Robot System',
-      nameAr: 'نظام الروبوت الجراحي',
-      price: 850000,
-      image: '/images/products/surgical-robot.jpg',
-      category: 'SURGICAL',
-      rating: 4.9,
-      supplier: 'Advanced Medical Systems',
-    },
-    {
-      id: '3',
-      name: 'Patient Monitor X500',
-      nameAr: 'جهاز مراقبة المريض X500',
-      price: 12000,
-      image: '/images/products/patient-monitor.jpg',
-      category: 'MONITORING',
-      rating: 4.7,
-      supplier: 'HealthCare Innovations',
-    },
-  ];
+
 
   const categories = [
     { id: 'diagnostic', name: t.categories.diagnostic, icon: '🔬', count: 1250 },
@@ -238,11 +207,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <FeaturedProducts locale={t.locale || 'en'} />
         </div>
       </section>
 

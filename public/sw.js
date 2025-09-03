@@ -19,7 +19,7 @@ const STATIC_ASSETS = [
   '/index.html',
   '/manifest.json',
   '/logo.png',
-  '/placeholder.svg',
+  '/favicon.ico',
   // Add critical CSS and JS files
 ];
 

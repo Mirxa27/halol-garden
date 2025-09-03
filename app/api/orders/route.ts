@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
+import { validateCoupon } from '@/lib/coupon';
+import { sendOrderConfirmationEmail as sendOrderEmail } from '@/lib/email';
 import { 
   OrderStatus, 
   PaymentStatus, 
@@ -34,14 +37,16 @@ const createOrderSchema = z.object({
 // GET /api/orders - Get user's orders
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const userId = user.id;
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -104,14 +109,16 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create order from cart
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
+    const user = await getCurrentUser();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const userId = user.id;
 
     const body = await request.json();
     const validatedData = createOrderSchema.parse(body);
@@ -171,11 +178,25 @@ export async function POST(request: NextRequest) {
 
     // Apply coupon if provided
     let discount = 0;
+    let couponMessage = '';
     if (validatedData.couponCode) {
-      // TODO: Implement coupon validation
-      // For now, apply a fixed 10% discount for demo
-      if (validatedData.couponCode === 'DEMO10') {
-        discount = total * 0.1;
+      const couponValidation = await validateCoupon(
+        validatedData.couponCode,
+        userId,
+        subtotal
+      );
+      
+      if (couponValidation.isValid) {
+        discount = couponValidation.discount;
+        couponMessage = couponValidation.message || '';
+      } else {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: couponValidation.message || 'Invalid coupon code' 
+          },
+          { status: 400 }
+        );
       }
     }
 
@@ -275,9 +296,31 @@ export async function POST(request: NextRequest) {
     sendOrderConfirmationEmail(order, userId).catch(console.error);
 
     // Process payment if not COD
+    let paymentResult = null;
     if (validatedData.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY) {
-      // Initiate payment processing (async)
-      initiatePayment(order).catch(console.error);
+      // Initiate payment processing
+      paymentResult = await initiatePayment(order);
+      
+      if (!paymentResult.success) {
+        // If payment fails, update order status
+        await prisma.order.update({
+          where: { id: order.id },
+          data: {
+            status: OrderStatus.CANCELLED,
+            paymentStatus: PaymentStatus.FAILED,
+            cancelledAt: new Date(),
+          },
+        });
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Payment processing failed', 
+            details: paymentResult.error 
+          },
+          { status: 400 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -291,6 +334,11 @@ export async function POST(request: NextRequest) {
         items: order.items,
         createdAt: order.createdAt,
       },
+      payment: paymentResult ? {
+        transactionId: paymentResult.transactionId,
+        clientSecret: paymentResult.clientSecret,
+        paymentIntentId: paymentResult.paymentIntentId,
+      } : null,
       message: 'Order created successfully',
     });
   } catch (error) {
@@ -387,9 +435,24 @@ async function sendOrderConfirmationEmail(order: any, userId: string) {
 
     if (!user) return;
 
-    // TODO: Implement actual email sending
-    console.log('Sending order confirmation email to:', user.email);
-    console.log('Order:', order.orderNumber);
+    // Get order with items for email
+    const orderWithItems = await prisma.order.findUnique({
+      where: { id: order.id },
+      include: {
+        items: true,
+      },
+    });
+
+    if (!orderWithItems) return;
+
+    // Send email
+    const result = await sendOrderEmail(orderWithItems, user);
+    
+    if (result.success) {
+      console.log('Order confirmation email sent successfully:', result.messageId);
+    } else {
+      console.error('Failed to send order confirmation email:', result.error);
+    }
   } catch (error) {
     console.error('Email send error:', error);
   }
@@ -398,11 +461,21 @@ async function sendOrderConfirmationEmail(order: any, userId: string) {
 // Helper function to initiate payment
 async function initiatePayment(order: any) {
   try {
-    // TODO: Implement actual payment processing
-    console.log('Initiating payment for order:', order.orderNumber);
-    console.log('Payment method:', order.paymentMethod);
-    console.log('Amount:', order.total);
+    const { processPayment } = await import('@/lib/payment');
+    const result = await processPayment(order, order.paymentMethod);
+    
+    if (!result.success) {
+      console.error('Payment processing failed:', result.error);
+      return { success: false, error: result.error };
+    }
+    
+    console.log('Payment initiated successfully:', result.transactionId);
+    return result;
   } catch (error) {
     console.error('Payment initiation error:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Payment initiation failed' 
+    };
   }
 }
