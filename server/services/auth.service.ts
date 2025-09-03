@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 import { prisma } from '../config/database';
 import { SessionManager, CacheService, CacheKeys, CacheTTL } from '../config/redis';
 import { sendEmail } from './email.service';
