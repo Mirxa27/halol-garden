@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, Cairo } from 'next/font/google';
 import './globals.css';
 import { Providers } from './providers';
-import { Header } from '@/components/layout/Header';
+import { ClientHeader } from '@/components/layout/ClientHeader';
 import { Footer } from '@/components/layout/Footer';
 
 const inter = Inter({ 
@@ -17,14 +17,14 @@ const cairo = Cairo({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Medical Devices Marketplace',
-    template: '%s | Medical Devices Marketplace',
+    default: 'Halol Garden - Medical Equipment Marketplace',
+    template: '%s | Halol Garden',
   },
-  description: 'Leading marketplace for medical devices in the Middle East. Find diagnostic, surgical, and therapeutic equipment from verified suppliers.',
-  keywords: ['medical devices', 'healthcare equipment', 'medical supplies', 'hospital equipment', 'أجهزة طبية', 'معدات طبية'],
-  authors: [{ name: 'Medical Devices Team' }],
-  creator: 'Medical Devices Marketplace',
-  publisher: 'Medical Devices Marketplace',
+  description: 'Leading marketplace for medical devices and healthcare equipment. Find diagnostic, surgical, and therapeutic equipment from verified suppliers.',
+  keywords: ['medical devices', 'healthcare equipment', 'medical supplies', 'hospital equipment', 'halol garden', 'أجهزة طبية', 'معدات طبية'],
+  authors: [{ name: 'Halol Garden Team' }],
+  creator: 'Halol Garden',
+  publisher: 'Halol Garden',
   formatDetection: {
     email: false,
     address: false,
@@ -32,10 +32,10 @@ export const metadata: Metadata = {
   },
   metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] || 'https://medical-devices.com'),
   openGraph: {
-    title: 'Medical Devices Marketplace',
-    description: 'Leading marketplace for medical devices in the Middle East',
-    url: 'https://medical-devices.com',
-    siteName: 'Medical Devices Marketplace',
+    title: 'Halol Garden - Medical Equipment Marketplace',
+    description: 'Leading marketplace for medical devices and healthcare equipment',
+    url: 'https://halol-garden.vercel.app',
+    siteName: 'Halol Garden',
     images: [
       {
         url: '/og-image.jpg',
@@ -91,7 +91,7 @@ export default function RootLayout({
       <body className={`${inter.variable} ${cairo.variable} font-sans antialiased`}>
         <Providers>
           <div className="flex min-h-screen flex-col">
-            <Header />
+            <ClientHeader />
             <main className="flex-1">{children}</main>
             <Footer />
           </div>

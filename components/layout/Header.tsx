@@ -9,16 +9,19 @@ import {
   Search, Heart, Bell, LogOut 
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useSession, signOut } from 'next-auth/react';
+import { useCart } from '@/contexts/CartContext';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const { language, setLanguage, t } = useLanguage();
+  const { data: session } = useSession();
+  const { items } = useCart();
   
-  // Mock user state - replace with actual auth
-  const isLoggedIn = false;
-  const cartItemsCount = 0;
+  const isLoggedIn = !!session;
+  const cartItemsCount = items.reduce((total, item) => total + item.quantity, 0);
 
   const navigation = [
     { name: t('common.products'), href: '/products' },
@@ -38,7 +41,7 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-primary">MedMarket</span>
+              <span className="text-2xl font-bold text-primary">Halol Garden</span>
             </Link>
           </div>
 
