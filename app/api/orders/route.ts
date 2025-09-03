@@ -7,6 +7,11 @@ import {
   PaymentMethod,
   ShippingStatus 
 } from '@prisma/client';
+import { getAuthenticatedUser, requireAuth } from '@/lib/auth/session';
+import { sendOrderConfirmationEmail } from '@/lib/email';
+import { processStripePayment, createPaymentIntent } from '@/lib/payment/stripe';
+import { createMyFatoorahPayment } from '@/lib/payment/myfatoorah';
+import { CouponService } from '@/lib/coupon/service';
 
 // Order creation validation schema
 const createOrderSchema = z.object({
@@ -34,9 +39,9 @@ const createOrderSchema = z.object({
 // GET /api/orders - Get user's orders
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
+    const user = await requireAuth();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
@@ -50,7 +55,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit;
 
     // Build where clause
-    const where: any = { userId };
+    const where: any = { userId: user.id };
     if (status) {
       where.status = status as OrderStatus;
     }
@@ -104,9 +109,9 @@ export async function GET(request: NextRequest) {
 // POST /api/orders - Create order from cart
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
+    const user = await requireAuth();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
@@ -118,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     // Get user's cart
     const cart = await prisma.cart.findUnique({
-      where: { userId },
+      where: { userId: user.id },
       include: {
         items: {
           include: {
@@ -171,11 +176,28 @@ export async function POST(request: NextRequest) {
 
     // Apply coupon if provided
     let discount = 0;
+    let couponValid = false;
+    let couponError = '';
     if (validatedData.couponCode) {
-      // TODO: Implement coupon validation
-      // For now, apply a fixed 10% discount for demo
-      if (validatedData.couponCode === 'DEMO10') {
-        discount = total * 0.1;
+      const cartItemsForCoupon = cart.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.product.salesDetails?.discountedPrice || item.product.salesDetails?.basePrice || 0,
+        category: item.product.category,
+      }));
+      
+      const couponResult = await CouponService.validateCoupon(
+        validatedData.couponCode,
+        total,
+        user.id,
+        cartItemsForCoupon
+      );
+      
+      if (couponResult.valid) {
+        discount = couponResult.discount;
+        couponValid = true;
+      } else {
+        couponError = couponResult.error || 'Invalid coupon';
       }
     }
 
@@ -191,7 +213,7 @@ export async function POST(request: NextRequest) {
       const newOrder = await tx.order.create({
         data: {
           orderNumber,
-          userId,
+          userId: user.id,
           status: OrderStatus.PENDING,
           paymentStatus: PaymentStatus.PENDING,
           paymentMethod: validatedData.paymentMethod,
@@ -254,7 +276,7 @@ export async function POST(request: NextRequest) {
             type: 'SALE',
             quantity: -item.quantity,
             reason: `Order ${newOrder.orderNumber}`,
-            performedBy: userId,
+            performedBy: user.id,
             metadata: {
               orderId: newOrder.id,
               orderNumber: newOrder.orderNumber,
@@ -271,13 +293,23 @@ export async function POST(request: NextRequest) {
       return newOrder;
     });
 
+    // Apply coupon if valid (mark as used)
+    if (couponValid && validatedData.couponCode) {
+      try {
+        await CouponService.applyCoupon(validatedData.couponCode, user.id, order.id);
+      } catch (error) {
+        console.error('Error applying coupon:', error);
+        // Don't fail the order creation if coupon application fails
+      }
+    }
+
     // Send order confirmation email (async, don't wait)
-    sendOrderConfirmationEmail(order, userId).catch(console.error);
+    sendOrderConfirmationEmailAsync(order, user).catch(console.error);
 
     // Process payment if not COD
     if (validatedData.paymentMethod !== PaymentMethod.CASH_ON_DELIVERY) {
       // Initiate payment processing (async)
-      initiatePayment(order).catch(console.error);
+      initiatePaymentAsync(order, validatedData.paymentMethod).catch(console.error);
     }
 
     return NextResponse.json({
@@ -315,9 +347,9 @@ export async function getOrder(
   { params }: { params: { id: string } }
 ) {
   try {
-    const userId = request.headers.get('x-user-id');
+    const user = await requireAuth();
     
-    if (!userId) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
@@ -352,12 +384,7 @@ export async function getOrder(
     }
 
     // Check if user owns this order or is admin
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { userType: true },
-    });
-
-    if (order.userId !== userId && user?.userType !== 'ADMIN') {
+    if (order.userId !== user.id && !user.isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 403 }
@@ -378,31 +405,58 @@ export async function getOrder(
 }
 
 // Helper function to send order confirmation email
-async function sendOrderConfirmationEmail(order: any, userId: string) {
+async function sendOrderConfirmationEmailAsync(order: any, user: any) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, lastName: true },
+    await sendOrderConfirmationEmail(user.email, {
+      orderNumber: order.orderNumber,
+      createdAt: order.createdAt,
+      totalAmount: order.total,
+      status: order.status,
+      items: order.items
     });
-
-    if (!user) return;
-
-    // TODO: Implement actual email sending
-    console.log('Sending order confirmation email to:', user.email);
-    console.log('Order:', order.orderNumber);
+    console.log('Order confirmation email sent to:', user.email);
   } catch (error) {
     console.error('Email send error:', error);
   }
 }
 
 // Helper function to initiate payment
-async function initiatePayment(order: any) {
+async function initiatePaymentAsync(order: any, paymentMethod: PaymentMethod) {
   try {
-    // TODO: Implement actual payment processing
-    console.log('Initiating payment for order:', order.orderNumber);
-    console.log('Payment method:', order.paymentMethod);
-    console.log('Amount:', order.total);
+    let paymentResult;
+    
+    switch (paymentMethod) {
+      case PaymentMethod.STRIPE:
+        const paymentIntent = await createPaymentIntent(
+          order.total,
+          'usd',
+          { orderId: order.id, orderNumber: order.orderNumber }
+        );
+        paymentResult = await processStripePayment(order.id, paymentIntent.id);
+        break;
+        
+      case PaymentMethod.MYFATOORAH:
+        paymentResult = await createMyFatoorahPayment({
+          orderId: order.id,
+          amount: order.total,
+          customerEmail: order.user?.email || '',
+          customerName: order.user?.name || '',
+          description: `Order ${order.orderNumber}`
+        });
+        break;
+        
+      default:
+        console.log('Payment method not implemented:', paymentMethod);
+        return;
+    }
+    
+    if (paymentResult?.success) {
+      console.log('Payment initiated successfully for order:', order.orderNumber);
+    } else {
+      console.error('Payment initiation failed:', paymentResult?.error);
+    }
   } catch (error) {
     console.error('Payment initiation error:', error);
   }
 }
+
