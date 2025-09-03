@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { requireSupplier, getUserSupplierId } from '@/lib/auth/session';
 
 // Validation schemas
 const productQuerySchema = z.object({
@@ -200,14 +201,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireSupplier();
+    const supplierId = await getUserSupplierId();
+    
+    if (!supplierId) {
+      return NextResponse.json(
+        { success: false, error: 'Supplier profile not found' },
+        { status: 400 }
+      );
+    }
+    
     const body = await request.json();
     
     // Validate request body
     const validatedData = createProductSchema.parse(body);
-    
-    // TODO: Get supplier ID from authenticated user
-    // For now, using a placeholder
-    const supplierId = 'supplier-placeholder-id';
     
     // Generate SKU
     const sku = `PROD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

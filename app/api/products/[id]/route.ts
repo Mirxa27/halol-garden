@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { requireAuth, checkResourcePermission } from '@/lib/auth/session';
+import { UserType } from '@prisma/client';
 
 // Validation schemas
 const updateProductSchema = z.object({
@@ -360,6 +362,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await requireAuth();
     const { id } = params;
 
     // Validate product ID
@@ -370,9 +373,16 @@ export async function DELETE(
       );
     }
 
-    // Check if product exists
+    // Check if product exists and get supplier info
     const existingProduct = await prisma.product.findUnique({
       where: { id },
+      include: {
+        supplier: {
+          select: {
+            userId: true
+          }
+        }
+      }
     });
 
     if (!existingProduct) {
@@ -382,8 +392,18 @@ export async function DELETE(
       );
     }
 
-    // TODO: Check if user has permission to delete this product
-    // For now, allowing all deletions
+    // Check if user has permission to delete this product
+    const hasPermission = await checkResourcePermission(
+      existingProduct.supplier.userId,
+      [UserType.ADMIN]
+    );
+    
+    if (!hasPermission) {
+      return NextResponse.json(
+        { success: false, error: 'You do not have permission to delete this product' },
+        { status: 403 }
+      );
+    }
 
     // Soft delete by setting status to DISCONTINUED
     await prisma.product.update({

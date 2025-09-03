@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { requireAuth } from '@/lib/auth/session';
 
 // Message validation schema
 const messageSchema = z.object({
@@ -12,13 +13,13 @@ const messageSchema = z.object({
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     const body = await request.json();
     const validatedData = messageSchema.parse(body);
 
     const { conversationId, content, type, metadata } = validatedData;
 
-    // TODO: Get user ID from session when auth is implemented
-    const senderId = 'temp-user-id'; // This should come from authenticated session
+    const senderId = user.id;
 
     // Verify conversation exists and user has access
     const conversation = await prisma.chatSession.findFirst({
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
         id: conversationId,
         participants: {
           some: {
-            userId: senderId,
+            userId: user.id,
           },
         },
       },
@@ -145,14 +146,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Get user ID from session
-    const userId = 'temp-user-id';
-
     // Verify user has access to conversation
     const hasAccess = await prisma.chatParticipant.findFirst({
       where: {
         sessionId: conversationId,
-        userId,
+        userId: user.id,
       },
     });
 

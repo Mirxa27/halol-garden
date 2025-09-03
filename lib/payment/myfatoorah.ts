@@ -439,6 +439,117 @@ export async function getMyFatoorahPaymentMethods(
   }
 }
 
+// Handle MyFatoorah webhooks
+export async function handleMyFatoorahWebhook(
+  webhookData: any
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const { paymentId, orderId, InvoiceId, InvoiceStatus } = webhookData;
+    
+    // Get payment status from MyFatoorah
+    const client = await createApiClient();
+    const response = await client.post('/v2/GetPaymentStatus', {
+      Key: paymentId || InvoiceId,
+      KeyType: 'InvoiceId'
+    });
+    
+    if (!response.data.isSuccess) {
+      return {
+        success: false,
+        error: 'Failed to verify payment status'
+      };
+    }
+    
+    const paymentData = response.data.data;
+    const invoiceStatus = paymentData.InvoiceStatus || InvoiceStatus;
+    
+    // Find order by metadata
+    let order;
+    if (orderId) {
+      order = await prisma.order.findUnique({
+        where: { id: orderId }
+      });
+    } else {
+      // Try to find by payment ID in metadata
+      order = await prisma.order.findFirst({
+        where: {
+          metadata: {
+            path: ['myFatoorahInvoiceId'],
+            equals: paymentId || InvoiceId
+          }
+        }
+      });
+    }
+    
+    if (!order) {
+      return {
+        success: false,
+        error: 'Order not found'
+      };
+    }
+    
+    // Update payment and order status based on MyFatoorah status
+    switch (invoiceStatus) {
+      case 'Paid':
+        // Create payment record
+        await prisma.payment.create({
+          data: {
+            orderId: order.id,
+            amount: paymentData.InvoiceValue || order.total,
+            currency: paymentData.CurrencyIso || 'SAR',
+            method: PaymentMethod.MYFATOORAH,
+            status: PaymentStatus.COMPLETED,
+            transactionId: paymentData.InvoiceId.toString(),
+            gatewayResponse: paymentData as any,
+            paidAt: new Date()
+          }
+        });
+        
+        // Update order status
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { 
+            paymentStatus: PaymentStatus.COMPLETED,
+            status: 'CONFIRMED'
+          }
+        });
+        break;
+        
+      case 'Failed':
+      case 'Expired':
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { 
+            paymentStatus: PaymentStatus.FAILED,
+            status: 'CANCELLED'
+          }
+        });
+        break;
+        
+      case 'Pending':
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { 
+            paymentStatus: PaymentStatus.PROCESSING
+          }
+        });
+        break;
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('MyFatoorah webhook error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Webhook processing failed'
+    };
+  }
+}
+
 // Validate configuration
 export async function validateMyFatoorahConfig(): Promise<{
   valid: boolean;

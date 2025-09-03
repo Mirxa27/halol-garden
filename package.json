@@ -36,6 +36,7 @@
     "migrate:status": "prisma migrate status",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:enhanced": "tsx prisma/seed.ts && tsx prisma/seed-enhanced.ts",
     "db:studio": "prisma studio",
     "db:setup": "bash scripts/db-setup.sh",
     "db:reset": "bash scripts/db-setup.sh --reset",
