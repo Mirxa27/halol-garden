@@ -1,7 +1,3 @@
-// This is your Prisma schema file,
-// Medical Devices Marketplace Database Schema
-// Version: 3.1.0
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,238 +7,889 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ==================== USER MANAGEMENT ====================
-
-enum UserType {
-  HEALTHCARE_PROVIDER
-  EQUIPMENT_SUPPLIER
-  MAINTENANCE_ENGINEER
-  CUSTOMER_SERVICE
-  ADMIN
-  INDIVIDUAL_CUSTOMER
+model AdminProfile {
+  id          String   @id
+  userId      String   @unique
+  permissions Json
+  role        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+  User        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum UserStatus {
-  PENDING_VERIFICATION
-  ACTIVE
-  SUSPENDED
-  INACTIVE
+model AuditLog {
+  id        String   @id
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  oldData   Json?
+  newData   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  User      User?    @relation(fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([createdAt])
+  @@index([entity])
+  @@index([userId])
 }
 
-enum VerificationStatus {
-  UNVERIFIED
-  EMAIL_VERIFIED
-  DOCUMENTS_VERIFIED
-  FULLY_VERIFIED
+model Cart {
+  id        String     @id
+  userId    String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime
+  User      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  CartItem  CartItem[]
 }
 
-model User {
-  id                 String             @id @default(cuid())
-  email              String             @unique
-  passwordHash       String
-  firstName          String
-  lastName           String
-  phoneNumber        String
-  userType           UserType
-  status             UserStatus         @default(PENDING_VERIFICATION)
-  verificationStatus VerificationStatus @default(UNVERIFIED)
-  profileImage       String?
-  preferredLanguage  String             @default("en")
-  twoFactorEnabled   Boolean            @default(false)
-  twoFactorSecret    String?
-  emailVerifiedAt    DateTime?
-  lastLoginAt        DateTime?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+model CartItem {
+  id        String   @id
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  addedAt   DateTime @default(now())
+  updatedAt DateTime
+  Cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  Product   Product  @relation(fields: [productId], references: [id])
 
-  // Relations
-  healthcareProfile  HealthcareProvider?
-  supplierProfile    EquipmentSupplier?
-  engineerProfile    MaintenanceEngineer?
-  customerServiceProfile CustomerServiceProfile?
-  adminProfile       AdminProfile?
-  individualProfile  IndividualCustomer?
-  
-  sessions           Session[]
-  auditLogs          AuditLog[]
-  orders             Order[]
-  rentals            RentalAgreement[]
-  maintenanceRequests MaintenanceRequest[]
-  chatSessions       ChatParticipant[]
-  notifications      Notification[]
-  reviews            ProductReview[]
-  questions          ProductQuestion[]
-  answers            ProductAnswer[]
-  wishlist           WishlistItem[]
-  cart               Cart?
-  supportTickets     SupportTicket[]
-  verificationTokens VerificationToken[]
-  passwordResets     PasswordReset[]
-  uploadedFiles      UploadedFile[]
-  
-  @@index([email])
-  @@index([userType])
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model ChatMessage {
+  id          String      @id
+  sessionId   String
+  senderId    String
+  content     String
+  type        String      @default("TEXT")
+  metadata    Json?
+  isEdited    Boolean     @default(false)
+  isDeleted   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime
+  ChatSession ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([sessionId])
+}
+
+model ChatParticipant {
+  id          String      @id
+  sessionId   String
+  userId      String
+  role        String      @default("PARTICIPANT")
+  joinedAt    DateTime    @default(now())
+  leftAt      DateTime?
+  ChatSession ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  User        User        @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model ChatSession {
+  id              String            @id
+  type            String
+  status          String            @default("ACTIVE")
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime
+  closedAt        DateTime?
+  ChatMessage     ChatMessage[]
+  ChatParticipant ChatParticipant[]
+
   @@index([status])
 }
 
-model HealthcareProvider {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  organizationName    String
-  organizationType    String   // Hospital, Clinic, Diagnostic Center, etc.
-  licenseNumber       String
-  taxRegistrationNumber String?
-  numberOfBeds        Int?
-  yearEstablished     Int?
-  emergencyContact    String?
-  website             String?
-  
-  // JSON fields for complex data
-  address             Json     // {street, city, state, country, postalCode}
-  specializations     Json     // Array of specializations
-  certifications      Json     // Array of certifications
-  operatingHours      Json?    // Operating hours by day
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
-  @@index([organizationName])
+model CustomerServiceProfile {
+  id              String          @id
+  userId          String          @unique
+  employeeId      String          @unique
+  department      String
+  extensionNumber String?
+  shift           String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  User            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  SupportTicket   SupportTicket[]
+}
+
+model EmailTemplate {
+  id        String   @id
+  name      String   @unique
+  subject   String
+  body      String
+  variables Json
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+
+  @@index([isActive])
+  @@index([name])
 }
 
 model EquipmentSupplier {
-  id                        String    @id @default(cuid())
-  userId                    String    @unique
-  user                      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyName               String
+  id                         String    @id
+  userId                     String    @unique
+  companyName                String
   businessRegistrationNumber String
-  taxId                     String?
-  yearEstablished           Int?
-  numberOfEmployees         Int?
-  annualRevenue             Float?
-  website                   String?
-  
-  // JSON fields
-  address                   Json      // {street, city, state, country, postalCode}
-  productCategories         Json      // Array of product categories
-  certifications            Json      // Array of certifications
-  brands                    Json?     // Array of brands represented
-  warehouses                Json?     // Array of warehouse locations
-  deliveryCapabilities      Json?     // Delivery options/capabilities
-  returnPolicy              Json?     // Returns policy
-  warrantyTerms             Json?     // Warranty terms
-  
-  verified                  Boolean   @default(false)
-  verifiedAt                DateTime?
-  rating                    Float     @default(0)
-  
-  products                  Product[]
-  
-  createdAt                 DateTime  @default(now())
-  updatedAt                 DateTime  @updatedAt
-  
+  taxId                      String?
+  yearEstablished            Int?
+  numberOfEmployees          Int?
+  annualRevenue              Float?
+  website                    String?
+  address                    Json
+  productCategories          Json
+  certifications             Json
+  brands                     Json?
+  warehouses                 Json?
+  deliveryCapabilities       Json?
+  returnPolicy               Json?
+  warrantyTerms              Json?
+  verified                   Boolean   @default(false)
+  verifiedAt                 DateTime?
+  rating                     Float     @default(0)
+  createdAt                  DateTime  @default(now())
+  updatedAt                  DateTime
+  User                       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Product                    Product[]
+
   @@index([companyName])
   @@index([verified])
 }
 
-model MaintenanceEngineer {
-  id                  String   @id @default(cuid())
-  userId              String   @unique
-  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  certificationNumber String
-  experienceYears     Int
-  hourlyRate          Float?
-  availability        String   @default("AVAILABLE") // AVAILABLE, BUSY, OFF_DUTY
-  
-  // JSON fields
-  specializations     Json     // Array of equipment types
-  certifications      Json     // Array of certifications
-  serviceAreas        Json     // Array of service locations
-  workSchedule        Json?    // Weekly schedule
-  
-  rating              Float    @default(0)
-  completedJobs       Int      @default(0)
-  
-  maintenanceJobs     MaintenanceRequest[]
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  
-  @@index([availability])
-}
+model HealthcareProvider {
+  id                    String   @id
+  userId                String   @unique
+  organizationName      String
+  organizationType      String
+  licenseNumber         String
+  taxRegistrationNumber String?
+  numberOfBeds          Int?
+  yearEstablished       Int?
+  emergencyContact      String?
+  website               String?
+  address               Json
+  specializations       Json
+  certifications        Json
+  operatingHours        Json?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime
+  User                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-model CustomerServiceProfile {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId      String   @unique
-  department      String
-  extensionNumber String?
-  shift           String   // MORNING, EVENING, NIGHT
-  
-  assignedTickets SupportTicket[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-}
-
-model AdminProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permissions Json     // Array of permission strings
-  role        String   // SUPER_ADMIN, ADMIN, MODERATOR
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@index([organizationName])
 }
 
 model IndividualCustomer {
-  id           String    @id @default(cuid())
-  userId       String    @unique
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dateOfBirth  DateTime?
-  gender       String?
-  
-  // JSON fields
-  address      Json      // {street, city, state, country, postalCode}
-  preferences  Json?     // Shopping preferences
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id          String    @id
+  userId      String    @unique
+  dateOfBirth DateTime?
+  gender      String?
+  address     Json
+  preferences Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  User        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// ==================== FILE UPLOADS ====================
+model InventoryLog {
+  id          String   @id
+  productId   String
+  type        String
+  quantity    Int
+  balance     Int?
+  reference   String?
+  reason      String?
+  metadata    Json?
+  performedBy String?
+  createdAt   DateTime @default(now())
+  Product     Product  @relation(fields: [productId], references: [id])
+
+  @@index([createdAt])
+  @@index([productId])
+  @@index([type])
+}
+
+model Invoice {
+  id            String    @id
+  invoiceNumber String    @unique
+  orderId       String
+  status        String    @default("DRAFT")
+  dueDate       DateTime
+  paidAt        DateTime?
+  subtotal      Float
+  tax           Float
+  total         Float
+  lineItems     Json
+  billingInfo   Json
+  notes         Json?
+  pdfUrl        String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime
+  Order         Order     @relation(fields: [orderId], references: [id])
+
+  @@index([invoiceNumber])
+  @@index([orderId])
+  @@index([status])
+}
+
+model MaintenanceEngineer {
+  id                  String               @id
+  userId              String               @unique
+  certificationNumber String
+  experienceYears     Int
+  hourlyRate          Float?
+  availability        String               @default("AVAILABLE")
+  specializations     Json
+  certifications      Json
+  serviceAreas        Json
+  workSchedule        Json?
+  rating              Float                @default(0)
+  completedJobs       Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  User                User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  MaintenanceRequest  MaintenanceRequest[]
+
+  @@index([availability])
+}
+
+model MaintenanceRequest {
+  id                  String               @id
+  requestNumber       String               @unique
+  userId              String
+  engineerId          String?
+  productId           String?
+  status              MaintenanceStatus    @default(REQUESTED)
+  priority            String               @default("NORMAL")
+  issueType           String
+  description         String
+  scheduledDate       DateTime?
+  completedDate       DateTime?
+  estimatedCost       Float?
+  actualCost          Float?
+  location            Json
+  diagnostics         Json?
+  workPerformed       Json?
+  partsUsed           Json?
+  images              Json?
+  rating              Int?
+  feedback            String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  MaintenanceEngineer MaintenanceEngineer? @relation(fields: [engineerId], references: [id])
+  Product             Product?             @relation(fields: [productId], references: [id])
+  User                User                 @relation(fields: [userId], references: [id])
+
+  @@index([engineerId])
+  @@index([priority])
+  @@index([status])
+  @@index([userId])
+}
+
+model Notification {
+  id        String    @id
+  userId    String
+  type      String
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isRead])
+  @@index([type])
+  @@index([userId])
+}
+
+model Order {
+  id              String         @id
+  orderNumber     String         @unique
+  userId          String
+  status          OrderStatus    @default(PENDING)
+  paymentStatus   PaymentStatus  @default(PENDING)
+  paymentMethod   PaymentMethod?
+  subtotal        Float
+  tax             Float
+  shipping        Float
+  discount        Float          @default(0)
+  total           Float
+  currency        String         @default("USD")
+  exchangeRate    Float          @default(1)
+  shippingAddress Json
+  billingAddress  Json
+  metadata        Json?
+  notes           String?
+  internalNotes   String?
+  confirmedAt     DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime
+  Invoice         Invoice[]
+  User            User           @relation(fields: [userId], references: [id])
+  OrderItem       OrderItem[]
+  Payment         Payment[]
+  Refund          Refund[]
+  Shipment        Shipment[]
+  Shipping        Shipping?
+
+  @@index([orderNumber])
+  @@index([paymentStatus])
+  @@index([status])
+  @@index([userId])
+}
+
+model OrderItem {
+  id        String   @id
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  discount  Float    @default(0)
+  tax       Float    @default(0)
+  total     Float
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  Order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model PasswordReset {
+  id        String    @id
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  User      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([token])
+  @@index([userId])
+}
+
+model Payment {
+  id              String        @id
+  orderId         String
+  amount          Float
+  currency        String        @default("USD")
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+  transactionId   String?       @unique
+  gatewayResponse Json?
+  paidAt          DateTime?
+  failedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime
+  Order           Order         @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+  @@index([transactionId])
+}
+
+model PriceHistory {
+  id        String   @id
+  productId String
+  oldPrice  Float
+  newPrice  Float
+  reason    String?
+  changedBy String?
+  createdAt DateTime @default(now())
+  Product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([createdAt])
+  @@index([productId])
+}
+
+model Product {
+  id                  String               @id
+  supplierId          String
+  name                String
+  nameAr              String
+  description         String
+  descriptionAr       String
+  sku                 String               @unique
+  barcode             String?
+  category            ProductCategory
+  subcategory         String?
+  brand               String?
+  model               String?
+  manufacturerCountry String?
+  condition           ProductCondition     @default(NEW)
+  status              ProductStatus        @default(DRAFT)
+  availabilityType    AvailabilityType     @default(SALE)
+  price               Float
+  compareAtPrice      Float?
+  costPrice           Float?
+  currency            String               @default("USD")
+  quantity            Int                  @default(0)
+  minOrderQuantity    Int                  @default(1)
+  maxOrderQuantity    Int?
+  weight              Float?
+  dimensions          Json?
+  images              Json
+  specifications      Json
+  features            Json?
+  certifications      Json?
+  documents           Json?
+  tags                Json?
+  warranty            Json?
+  warrantyPeriod      Int?
+  returnPeriod        Int                  @default(30)
+  featured            Boolean              @default(false)
+  isFeatured          Boolean              @default(false)
+  isPublished         Boolean              @default(false)
+  publishedAt         DateTime?
+  views               Int                  @default(0)
+  salesCount          Int                  @default(0)
+  rating              Float                @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime
+  CartItem            CartItem[]
+  InventoryLog        InventoryLog[]
+  MaintenanceRequest  MaintenanceRequest[]
+  OrderItem           OrderItem[]
+  PriceHistory        PriceHistory[]
+  EquipmentSupplier   EquipmentSupplier    @relation(fields: [supplierId], references: [id])
+  ProductQuestion     ProductQuestion[]
+  ProductReview       ProductReview[]
+  RentalDetails       RentalDetails?
+  RentalItem          RentalItem[]
+  SalesDetails        SalesDetails?
+  UploadedFile        UploadedFile[]
+  WishlistItem        WishlistItem[]
+
+  @@index([category])
+  @@index([name])
+  @@index([sku])
+  @@index([status])
+  @@index([supplierId])
+}
+
+model ProductAnswer {
+  id              String          @id
+  questionId      String
+  userId          String
+  answer          String
+  isOfficial      Boolean         @default(false)
+  helpful         Int             @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  ProductQuestion ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  User            User            @relation(fields: [userId], references: [id])
+
+  @@index([questionId])
+  @@index([userId])
+}
+
+model ProductQuestion {
+  id            String          @id
+  productId     String
+  userId        String
+  question      String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime
+  ProductAnswer ProductAnswer[]
+  Product       Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  User          User            @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([userId])
+}
+
+model ProductReview {
+  id         String   @id
+  productId  String
+  userId     String
+  rating     Int
+  title      String
+  comment    String
+  isVerified Boolean  @default(false)
+  helpful    Int      @default(0)
+  images     Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+  Product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  User       User     @relation(fields: [userId], references: [id])
+
+  @@index([productId])
+  @@index([rating])
+  @@index([userId])
+}
+
+model Refund {
+  id          String    @id
+  orderId     String
+  amount      Float
+  reason      String
+  status      String    @default("PENDING")
+  approvedBy  String?
+  processedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime
+  Order       Order     @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model RentalAgreement {
+  id               String          @id
+  agreementNumber  String          @unique
+  userId           String
+  status           RentalStatus    @default(DRAFT)
+  startDate        DateTime
+  endDate          DateTime
+  actualReturnDate DateTime?
+  depositAmount    Float
+  dailyRate        Float
+  totalAmount      Float
+  deliveryAddress  Json
+  terms            Json
+  insurance        Json?
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime
+  User             User            @relation(fields: [userId], references: [id])
+  RentalItem       RentalItem[]
+  RentalPayment    RentalPayment[]
+
+  @@index([agreementNumber])
+  @@index([status])
+  @@index([userId])
+}
+
+model RentalDetails {
+  id                  String       @id
+  productId           String       @unique
+  dailyRate           Float
+  weeklyRate          Float?
+  monthlyRate         Float?
+  securityDeposit     Float
+  minimumRentalPeriod Int          @default(1)
+  maximumRentalPeriod Int?
+  isAvailable         Boolean      @default(true)
+  inventory           Json?
+  rentalTerms         Json?
+  maintenanceSchedule Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime
+  Product             Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  RentalUnit          RentalUnit[]
+
+  @@index([productId])
+}
+
+model RentalItem {
+  id              String          @id
+  rentalId        String
+  productId       String
+  quantity        Int
+  dailyRate       Float
+  condition       Json
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  Product         Product         @relation(fields: [productId], references: [id])
+  RentalAgreement RentalAgreement @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@index([rentalId])
+}
+
+model RentalPayment {
+  id              String          @id
+  rentalId        String
+  amount          Float
+  type            String
+  status          PaymentStatus
+  paidAt          DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime
+  RentalAgreement RentalAgreement @relation(fields: [rentalId], references: [id])
+
+  @@index([rentalId])
+}
+
+model RentalUnit {
+  id              String           @id
+  rentalDetailsId String
+  serialNumber    String?
+  condition       Json?
+  status          RentalUnitStatus @default(AVAILABLE)
+  location        Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime
+  RentalDetails   RentalDetails    @relation(fields: [rentalDetailsId], references: [id], onDelete: Cascade)
+
+  @@index([rentalDetailsId])
+  @@index([status])
+}
+
+model SalesDetails {
+  id               String   @id
+  productId        String   @unique
+  basePrice        Float
+  discountedPrice  Float?
+  costPrice        Float?
+  minOrderQuantity Int      @default(1)
+  maxOrderQuantity Int?
+  inventory        Json?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime
+  Product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model Session {
+  id           String   @id
+  userId       String
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  lastActivity DateTime @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  User         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([token])
+  @@index([userId])
+}
+
+model Shipment {
+  id                String    @id
+  orderId           String
+  carrier           String
+  trackingNumber    String?   @unique
+  status            String    @default("PREPARING")
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  shippingCost      Float
+  weight            Float?
+  trackingHistory   Json?
+  documents         Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime
+  Order             Order     @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+  @@index([trackingNumber])
+}
+
+model Shipping {
+  id                String         @id
+  orderId           String         @unique
+  carrier           String?
+  trackingNumber    String?
+  status            ShippingStatus @default(PENDING)
+  shippingCost      Float          @default(0)
+  estimatedDelivery DateTime?
+  actualDelivery    DateTime?
+  address           Json
+  notes             String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime
+  Order             Order          @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([trackingNumber])
+}
+
+model SupportTicket {
+  id                     String                  @id
+  ticketNumber           String                  @unique
+  userId                 String
+  assignedToId           String?
+  status                 TicketStatus            @default(OPEN)
+  priority               TicketPriority          @default(MEDIUM)
+  category               String
+  subject                String
+  description            String
+  resolution             String?
+  attachments            Json?
+  resolvedAt             DateTime?
+  closedAt               DateTime?
+  satisfaction           Int?
+  feedback               String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  CustomerServiceProfile CustomerServiceProfile? @relation(fields: [assignedToId], references: [id])
+  User                   User                    @relation(fields: [userId], references: [id])
+
+  @@index([assignedToId])
+  @@index([priority])
+  @@index([status])
+  @@index([userId])
+}
+
+model SystemSetting {
+  id          String   @id
+  key         String   @unique
+  value       Json
+  type        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime
+
+  @@index([key])
+}
 
 model UploadedFile {
-  id           String   @id @default(cuid())
+  id           String   @id
   fileName     String
   originalName String
   mimeType     String
   size         Int
   path         String
   url          String?
-  
   uploadedBy   String?
   userId       String?
-  user         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Relations
   productId    String?
-  product      Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  // Metadata
-  metadata     Json?    // Additional metadata like dimensions for images
-  
+  metadata     Json?
   createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
+  updatedAt    DateTime
+  Product      Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
+  User         User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([fileName])
-  @@index([userId])
   @@index([productId])
+  @@index([userId])
 }
 
-// ==================== PRODUCT MANAGEMENT ====================
+model User {
+  id                     String                  @id
+  email                  String                  @unique
+  passwordHash           String
+  firstName              String
+  lastName               String
+  phoneNumber            String
+  userType               UserType
+  status                 UserStatus              @default(PENDING_VERIFICATION)
+  verificationStatus     VerificationStatus      @default(UNVERIFIED)
+  profileImage           String?
+  preferredLanguage      String                  @default("en")
+  twoFactorEnabled       Boolean                 @default(false)
+  twoFactorSecret        String?
+  emailVerifiedAt        DateTime?
+  lastLoginAt            DateTime?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime
+  backupCodes            Json?
+  AdminProfile           AdminProfile?
+  AuditLog               AuditLog[]
+  Cart                   Cart?
+  ChatParticipant        ChatParticipant[]
+  CustomerServiceProfile CustomerServiceProfile?
+  EquipmentSupplier      EquipmentSupplier?
+  HealthcareProvider     HealthcareProvider?
+  IndividualCustomer     IndividualCustomer?
+  MaintenanceEngineer    MaintenanceEngineer?
+  MaintenanceRequest     MaintenanceRequest[]
+  Notification           Notification[]
+  Order                  Order[]
+  PasswordReset          PasswordReset[]
+  ProductAnswer          ProductAnswer[]
+  ProductQuestion        ProductQuestion[]
+  ProductReview          ProductReview[]
+  RentalAgreement        RentalAgreement[]
+  Session                Session[]
+  SupportTicket          SupportTicket[]
+  UploadedFile           UploadedFile[]
+  VerificationToken      VerificationToken[]
+  WishlistItem           WishlistItem[]
+
+  @@index([email])
+  @@index([status])
+  @@index([userType])
+}
+
+model VerificationToken {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  type      String   @default("EMAIL_VERIFICATION")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@index([token])
+  @@index([userId])
+}
+
+model WishlistItem {
+  id        String   @id
+  userId    String
+  productId String
+  addedAt   DateTime @default(now())
+  Product   Product  @relation(fields: [productId], references: [id])
+  User      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
+  @@index([userId])
+}
+
+enum AvailabilityType {
+  SALE
+  RENT
+  BOTH
+}
+
+enum MaintenanceStatus {
+  REQUESTED
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CREDIT_CARD
+  DEBIT_CARD
+  PAYPAL
+  STRIPE
+  MYFATOORAH
+  BANK_TRANSFER
+  CASH_ON_DELIVERY
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
 
 enum ProductCategory {
   DIAGNOSTIC
@@ -272,92 +919,20 @@ enum ProductStatus {
   PENDING_APPROVAL
 }
 
-enum AvailabilityType {
-  SALE
-  RENT
-  BOTH
+enum RentalStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  OVERDUE
 }
 
-model Product {
-  id                String            @id @default(cuid())
-  supplierId        String
-  supplier          EquipmentSupplier @relation(fields: [supplierId], references: [id])
-  
-  name              String
-  nameAr            String
-  description       String            @db.Text
-  descriptionAr     String            @db.Text
-  sku               String            @unique
-  barcode           String?
-  
-  category          ProductCategory
-  subcategory       String?
-  brand             String?
-  model             String?
-  manufacturerCountry String?
-  condition         ProductCondition  @default(NEW)
-  status            ProductStatus     @default(DRAFT)
-  availabilityType  AvailabilityType  @default(SALE)
-  
-  price             Float
-  compareAtPrice    Float?
-  costPrice         Float?
-  currency          String            @default("USD")
-  
-  quantity          Int               @default(0)
-  minOrderQuantity  Int               @default(1)
-  maxOrderQuantity  Int?
-  
-  weight            Float?            // in kg
-  dimensions        Json?             // {length, width, height}
-  
-  // JSON fields
-  images            Json              // Array of image URLs
-  specifications    Json              // Technical specifications
-  features          Json?             // Key features array
-  certifications    Json?             // Certifications array
-  documents         Json?             // Product documents/manuals
-  tags              Json?             // Search tags
-  warranty          Json?
-  
-  warrantyPeriod    Int?              // in months
-  returnPeriod      Int               @default(30) // in days
-  
-  featured          Boolean           @default(false)
-  isFeatured        Boolean           @default(false)
-  isPublished       Boolean           @default(false)
-  publishedAt       DateTime?
-  
-  views             Int               @default(0)
-  salesCount        Int               @default(0)
-  rating            Float             @default(0)
-  
-  // Relations
-  salesDetails      SalesDetails?
-  rentalDetails     RentalDetails?
-  orderItems        OrderItem[]
-  cartItems         CartItem[]
-  wishlistItems     WishlistItem[]
-  reviews           ProductReview[]
-  questions         ProductQuestion[]
-  rentalItems       RentalItem[]
-  maintenanceHistory MaintenanceRequest[]
-  priceHistory      PriceHistory[]
-  inventory         InventoryLog[]
-  uploadedFiles     UploadedFile[]
-  
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  
-  @@index([supplierId])
-  @@index([category])
-  @@index([status])
-  @@index([sku])
-  @@index([name])
-
+enum RentalUnitStatus {
+  AVAILABLE
+  RENTED
+  MAINTENANCE
+  RETIRED
 }
-
-// Additional product detail models
 
 enum ShippingStatus {
   PENDING
@@ -368,598 +943,12 @@ enum ShippingStatus {
   CANCELLED
 }
 
-model SalesDetails {
-  id               String   @id @default(cuid())
-  productId        String   @unique
-  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  basePrice        Float
-  discountedPrice  Float?
-  costPrice        Float?
-  minOrderQuantity Int      @default(1)
-  maxOrderQuantity Int?
-  
-  inventory        Json?
-  
-  isActive         Boolean  @default(true)
-  
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  
-  @@index([productId])
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }
-
-enum RentalUnitStatus {
-  AVAILABLE
-  RENTED
-  MAINTENANCE
-  RETIRED
-}
-
-model RentalDetails {
-  id                    String   @id @default(cuid())
-  productId             String   @unique
-  product               Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  dailyRate             Float
-  weeklyRate            Float?
-  monthlyRate           Float?
-  securityDeposit       Float
-  
-  minimumRentalPeriod   Int      @default(1)
-  maximumRentalPeriod   Int?
-  
-  isAvailable          Boolean  @default(true)
-  inventory            Json?
-  rentalTerms          Json?
-  maintenanceSchedule  Json?
-  
-  rentalUnits          RentalUnit[]
-  
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  
-  @@index([productId])
-}
-
-model RentalUnit {
-  id               String            @id @default(cuid())
-  rentalDetailsId  String
-  rentalDetails    RentalDetails     @relation(fields: [rentalDetailsId], references: [id], onDelete: Cascade)
-  
-  serialNumber     String?
-  condition        Json?
-  status           RentalUnitStatus  @default(AVAILABLE)
-  location         Json?
-  
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  
-  @@index([rentalDetailsId])
-  @@index([status])
-}
-
-// ==================== ORDER MANAGEMENT ====================
-
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  REFUNDED
-}
-
-enum PaymentStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-  REFUNDED
-  PARTIALLY_REFUNDED
-}
-
-enum PaymentMethod {
-  CREDIT_CARD
-  DEBIT_CARD
-  PAYPAL
-  STRIPE
-  MYFATOORAH
-  BANK_TRANSFER
-  CASH_ON_DELIVERY
-}
-
-model Order {
-  id              String        @id @default(cuid())
-  orderNumber     String        @unique @default(cuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id])
-  
-  status          OrderStatus   @default(PENDING)
-  paymentStatus   PaymentStatus @default(PENDING)
-  paymentMethod   PaymentMethod?
-  
-  subtotal        Float
-  tax             Float
-  shipping        Float
-  discount        Float         @default(0)
-  total           Float
-  
-  currency        String        @default("USD")
-  exchangeRate    Float         @default(1)
-  
-  // JSON fields
-  shippingAddress Json          // Address details
-  billingAddress  Json          // Address details
-  metadata        Json?         // Additional order data
-  
-  notes           String?       @db.Text
-  internalNotes   String?       @db.Text
-  
-  // Dates
-  confirmedAt     DateTime?
-  shippedAt       DateTime?
-  deliveredAt     DateTime?
-  cancelledAt     DateTime?
-  
-  // Relations
-  items           OrderItem[]
-  payments        Payment[]
-  shipments       Shipment[]
-  invoices        Invoice[]
-  refunds         Refund[]
-  shippingInfo    Shipping?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  @@index([userId])
-  @@index([orderNumber])
-  @@index([status])
-  @@index([paymentStatus])
-}
-
-model OrderItem {
-  id          String   @id @default(cuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  
-  quantity    Int
-  price       Float
-  discount    Float    @default(0)
-  tax         Float    @default(0)
-  total       Float
-  
-  // JSON fields
-  metadata    Json?    // Product snapshot at time of order
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([orderId])
-  @@index([productId])
-}
-
-// ==================== PAYMENT MANAGEMENT ====================
-
-model Payment {
-  id              String        @id @default(cuid())
-  orderId         String
-  order           Order         @relation(fields: [orderId], references: [id])
-  
-  amount          Float
-  currency        String        @default("USD")
-  method          PaymentMethod
-  status          PaymentStatus @default(PENDING)
-  
-  transactionId   String?       @unique
-  gatewayResponse Json?         // Gateway response data
-  
-  paidAt          DateTime?
-  failedAt        DateTime?
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  
-  @@index([orderId])
-  @@index([transactionId])
-  @@index([status])
-}
-
-model Refund {
-  id          String   @id @default(cuid())
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id])
-  
-  amount      Float
-  reason      String
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED, COMPLETED
-  
-  approvedBy  String?
-  processedAt DateTime?
-  
-  metadata    Json?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([orderId])
-  @@index([status])
-}
-
-// ==================== SHIPPING & LOGISTICS ====================
-
-model Shipment {
-  id              String   @id @default(cuid())
-  orderId         String
-  order           Order    @relation(fields: [orderId], references: [id])
-  
-  carrier         String
-  trackingNumber  String?  @unique
-  status          String   @default("PREPARING") // PREPARING, SHIPPED, IN_TRANSIT, DELIVERED
-  
-  estimatedDelivery DateTime?
-  actualDelivery  DateTime?
-  
-  shippingCost    Float
-  weight          Float?
-  
-  // JSON fields
-  trackingHistory Json?    // Tracking updates
-  documents       Json?    // Shipping documents
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  @@index([orderId])
-  @@index([trackingNumber])
-  @@index([status])
-}
-
-model Shipping {
-  id                 String         @id @default(cuid())
-  orderId            String         @unique
-  order              Order          @relation(fields: [orderId], references: [id])
-  
-  carrier            String?
-  trackingNumber     String?
-  status             ShippingStatus @default(PENDING)
-  
-  shippingCost       Float          @default(0)
-  estimatedDelivery  DateTime?
-  actualDelivery     DateTime?
-  
-  address            Json           // Shipping address
-  notes              String?
-  
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  
-  @@index([orderId])
-  @@index([trackingNumber])
-}
-
-// ==================== CART & WISHLIST ====================
-
-model Cart {
-  id        String     @id @default(cuid())
-  userId    String     @unique
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  items     CartItem[]
-  
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-}
-
-model CartItem {
-  id        String   @id @default(cuid())
-  cartId    String
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  
-  quantity  Int      @default(1)
-  
-  addedAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@unique([cartId, productId])
-  @@index([cartId])
-  @@index([productId])
-}
-
-model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product  @relation(fields: [productId], references: [id])
-  
-  addedAt   DateTime @default(now())
-  
-  @@unique([userId, productId])
-  @@index([userId])
-  @@index([productId])
-}
-
-// ==================== REVIEWS & RATINGS ====================
-
-model ProductReview {
-  id            String   @id @default(cuid())
-  productId     String
-  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
-  rating        Int      // 1-5
-  title         String
-  comment       String   @db.Text
-  
-  isVerified    Boolean  @default(false) // Verified purchase
-  helpful       Int      @default(0)      // Helpful votes count
-  
-  images        Json?    // Review images
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([productId])
-  @@index([userId])
-  @@index([rating])
-}
-
-model ProductQuestion {
-  id        String          @id @default(cuid())
-  productId String
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User            @relation(fields: [userId], references: [id])
-  
-  question  String          @db.Text
-  
-  answers   ProductAnswer[]
-  
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  
-  @@index([productId])
-  @@index([userId])
-}
-
-model ProductAnswer {
-  id         String          @id @default(cuid())
-  questionId String
-  question   ProductQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  userId     String
-  user       User            @relation(fields: [userId], references: [id])
-  
-  answer     String          @db.Text
-  isOfficial Boolean         @default(false) // Answer from supplier
-  helpful    Int             @default(0)
-  
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  
-  @@index([questionId])
-  @@index([userId])
-}
-
-// ==================== RENTAL MANAGEMENT ====================
-
-enum RentalStatus {
-  DRAFT
-  ACTIVE
-  COMPLETED
-  CANCELLED
-  OVERDUE
-}
-
-model RentalAgreement {
-  id              String       @id @default(cuid())
-  agreementNumber String       @unique @default(cuid())
-  userId          String
-  user            User         @relation(fields: [userId], references: [id])
-  
-  status          RentalStatus @default(DRAFT)
-  
-  startDate       DateTime
-  endDate         DateTime
-  actualReturnDate DateTime?
-  
-  depositAmount   Float
-  dailyRate       Float
-  totalAmount     Float
-  
-  // JSON fields
-  deliveryAddress Json
-  terms           Json         // Rental terms and conditions
-  insurance       Json?        // Insurance details
-  
-  notes           String?      @db.Text
-  
-  // Relations
-  items           RentalItem[]
-  payments        RentalPayment[]
-  
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  
-  @@index([userId])
-  @@index([agreementNumber])
-  @@index([status])
-}
-
-model RentalItem {
-  id          String          @id @default(cuid())
-  rentalId    String
-  rental      RentalAgreement @relation(fields: [rentalId], references: [id], onDelete: Cascade)
-  productId   String
-  product     Product         @relation(fields: [productId], references: [id])
-  
-  quantity    Int
-  dailyRate   Float
-  
-  condition   Json            // Condition at rental and return
-  
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-  
-  @@index([rentalId])
-  @@index([productId])
-}
-
-model RentalPayment {
-  id        String          @id @default(cuid())
-  rentalId  String
-  rental    RentalAgreement @relation(fields: [rentalId], references: [id])
-  
-  amount    Float
-  type      String          // DEPOSIT, RENTAL, PENALTY, REFUND
-  status    PaymentStatus
-  
-  paidAt    DateTime?
-  
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  
-  @@index([rentalId])
-}
-
-// ==================== MAINTENANCE & SERVICE ====================
-
-enum MaintenanceStatus {
-  REQUESTED
-  SCHEDULED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-model MaintenanceRequest {
-  id            String              @id @default(cuid())
-  requestNumber String              @unique @default(cuid())
-  userId        String
-  user          User                @relation(fields: [userId], references: [id])
-  engineerId    String?
-  engineer      MaintenanceEngineer? @relation(fields: [engineerId], references: [id])
-  productId     String?
-  product       Product?            @relation(fields: [productId], references: [id])
-  
-  status        MaintenanceStatus   @default(REQUESTED)
-  priority      String              @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
-  
-  issueType     String              // REPAIR, MAINTENANCE, INSPECTION, CALIBRATION
-  description   String              @db.Text
-  
-  scheduledDate DateTime?
-  completedDate DateTime?
-  
-  estimatedCost Float?
-  actualCost    Float?
-  
-  // JSON fields
-  location      Json                // Service location
-  diagnostics   Json?               // Diagnostic results
-  workPerformed Json?               // Work details
-  partsUsed     Json?               // Parts and materials
-  images        Json?               // Before/after images
-  
-  rating        Int?                // Service rating
-  feedback      String?             @db.Text
-  
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  
-  @@index([userId])
-  @@index([engineerId])
-  @@index([status])
-  @@index([priority])
-}
-
-// ==================== COMMUNICATION ====================
-
-model ChatSession {
-  id           String            @id @default(cuid())
-  type         String            // SUPPORT, INQUIRY, NEGOTIATION
-  status       String            @default("ACTIVE") // ACTIVE, CLOSED, ARCHIVED
-  
-  participants ChatParticipant[]
-  messages     ChatMessage[]
-  
-  metadata     Json?
-  
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
-  closedAt     DateTime?
-  
-  @@index([status])
-}
-
-model ChatParticipant {
-  id        String      @id @default(cuid())
-  sessionId String
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User        @relation(fields: [userId], references: [id])
-  
-  role      String      @default("PARTICIPANT") // PARTICIPANT, MODERATOR
-  joinedAt  DateTime    @default(now())
-  leftAt    DateTime?
-  
-  @@unique([sessionId, userId])
-  @@index([sessionId])
-  @@index([userId])
-}
-
-model ChatMessage {
-  id        String      @id @default(cuid())
-  sessionId String
-  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  senderId  String
-  
-  content   String      @db.Text
-  type      String      @default("TEXT") // TEXT, IMAGE, FILE, SYSTEM
-  
-  metadata  Json?       // Attachments, etc.
-  
-  isEdited  Boolean     @default(false)
-  isDeleted Boolean     @default(false)
-  
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  
-  @@index([sessionId])
-  @@index([senderId])
-}
-
-// ==================== NOTIFICATIONS ====================
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  type      String   // ORDER, PAYMENT, SHIPPING, SYSTEM, PROMOTION
-  title     String
-  message   String   @db.Text
-  
-  data      Json?    // Additional notification data
-  
-  isRead    Boolean  @default(false)
-  readAt    DateTime?
-  
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([isRead])
-  @@index([type])
-}
-
-// ==================== SUPPORT ====================
 
 enum TicketStatus {
   OPEN
@@ -969,220 +958,25 @@ enum TicketStatus {
   CLOSED
 }
 
-enum TicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  INACTIVE
 }
 
-model SupportTicket {
-  id           String                  @id @default(cuid())
-  ticketNumber String                  @unique @default(cuid())
-  userId       String
-  user         User                    @relation(fields: [userId], references: [id])
-  assignedToId String?
-  assignedTo   CustomerServiceProfile? @relation(fields: [assignedToId], references: [id])
-  
-  status       TicketStatus            @default(OPEN)
-  priority     TicketPriority          @default(MEDIUM)
-  
-  category     String                  // TECHNICAL, BILLING, SHIPPING, PRODUCT, OTHER
-  subject      String
-  description  String                  @db.Text
-  
-  resolution   String?                 @db.Text
-  
-  attachments  Json?                   // File attachments
-  
-  resolvedAt   DateTime?
-  closedAt     DateTime?
-  
-  satisfaction Int?                    // 1-5 rating
-  feedback     String?                 @db.Text
-  
-  createdAt    DateTime                @default(now())
-  updatedAt    DateTime                @updatedAt
-  
-  @@index([userId])
-  @@index([assignedToId])
-  @@index([status])
-  @@index([priority])
+enum UserType {
+  HEALTHCARE_PROVIDER
+  EQUIPMENT_SUPPLIER
+  MAINTENANCE_ENGINEER
+  CUSTOMER_SERVICE
+  ADMIN
+  INDIVIDUAL_CUSTOMER
 }
 
-// ==================== INVOICING ====================
-
-model Invoice {
-  id            String   @id @default(cuid())
-  invoiceNumber String   @unique @default(cuid())
-  orderId       String
-  order         Order    @relation(fields: [orderId], references: [id])
-  
-  status        String   @default("DRAFT") // DRAFT, SENT, PAID, OVERDUE, CANCELLED
-  
-  dueDate       DateTime
-  paidAt        DateTime?
-  
-  subtotal      Float
-  tax           Float
-  total         Float
-  
-  // JSON fields
-  lineItems     Json     // Invoice line items
-  billingInfo   Json     // Billing information
-  notes         Json?    // Invoice notes
-  
-  pdfUrl        String?  // Generated PDF URL
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  
-  @@index([orderId])
-  @@index([invoiceNumber])
-  @@index([status])
-}
-
-// ==================== AUDIT & SECURITY ====================
-
-model Session {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  token        String   @unique
-  ipAddress    String?
-  userAgent    String?
-  
-  lastActivity DateTime @default(now())
-  expiresAt    DateTime
-  
-  createdAt    DateTime @default(now())
-  
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  
-  action    String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT, etc.
-  entity    String   // User, Product, Order, etc.
-  entityId  String?
-  
-  oldData   Json?    // Previous state
-  newData   Json?    // New state
-  
-  ipAddress String?
-  userAgent String?
-  
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([entity])
-  @@index([action])
-  @@index([createdAt])
-}
-
-model VerificationToken {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  type      String   @default("EMAIL_VERIFICATION")
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-}
-
-model PasswordReset {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String   @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-  createdAt DateTime @default(now())
-  
-  @@index([userId])
-  @@index([token])
-  @@index([expiresAt])
-}
-
-// ==================== INVENTORY MANAGEMENT ====================
-
-model InventoryLog {
-  id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  
-  type        String   // IN, OUT, ADJUSTMENT, RETURN, SALE
-  quantity    Int
-  balance     Int?     // Balance after transaction
-  
-  reference   String?  // Order ID, Return ID, etc.
-  reason      String?
-  metadata    Json?
-  
-  performedBy String?
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([productId])
-  @@index([type])
-  @@index([createdAt])
-}
-
-model PriceHistory {
-  id          String   @id @default(cuid())
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id])
-  
-  oldPrice    Float
-  newPrice    Float
-  
-  reason      String?
-  changedBy   String?
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([productId])
-  @@index([createdAt])
-}
-
-// ==================== SETTINGS & CONFIGURATION ====================
-
-model SystemSetting {
-  id    String @id @default(cuid())
-  key   String @unique
-  value Json
-  type  String // STRING, NUMBER, BOOLEAN, JSON
-  
-  description String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([key])
-}
-
-model EmailTemplate {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  subject   String
-  body      String   @db.Text
-  variables Json     // Available variables for template
-  
-  isActive  Boolean  @default(true)
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([name])
-  @@index([isActive])
+enum VerificationStatus {
+  UNVERIFIED
+  EMAIL_VERIFIED
+  DOCUMENTS_VERIFIED
+  FULLY_VERIFIED
 }

@@ -87,21 +87,26 @@ export const POST = withAuth(
           description: description || null
         },
         create: {
+          id: `setting_${key}`,
           key,
           value: type === 'JSON' ? processedValue : JSON.stringify(processedValue),
           type,
-          description: description || null
+          description: description || null,
+          updatedAt: new Date()
         }
       });
       
       // Log the change
       await prisma.auditLog.create({
         data: {
-          userId: req.user.id,
+          id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: req.user?.id || null,
           action: 'SETTING_UPDATE',
           entity: 'SystemSetting',
           entityId: setting.id,
-          newData: { key, value: processedValue, type }
+          newData: { key, value: processedValue, type },
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '',
+          userAgent: req.headers.get('user-agent') || ''
         }
       });
       
@@ -143,11 +148,14 @@ export const DELETE = withAuth(
       // Log the deletion
       await prisma.auditLog.create({
         data: {
-          userId: req.user.id,
+          id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          userId: req.user?.id || null,
           action: 'SETTING_DELETE',
           entity: 'SystemSetting',
           entityId: key,
-          oldData: { key }
+          oldData: { key },
+          ipAddress: req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || '',
+          userAgent: req.headers.get('user-agent') || ''
         }
       });
       

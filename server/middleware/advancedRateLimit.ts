@@ -367,24 +367,62 @@ export class AdvancedRateLimiter {
    * Get system CPU usage
    */
   private async getSystemCPUUsage(): Promise<number> {
-    // Implementation would connect to monitoring service
-    return 50; // Mock value
+    if (typeof process !== 'undefined' && process.cpuUsage) {
+      const startUsage = process.cpuUsage();
+      const startTime = process.hrtime.bigint();
+      
+      // Wait a small amount of time to measure
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const endTime = process.hrtime.bigint();
+      const endUsage = process.cpuUsage(startUsage);
+      
+      const elapsedTime = Number(endTime - startTime) / 1e6; // Convert to milliseconds
+      const elapsedUser = endUsage.user / 1000; // Convert to milliseconds
+      const elapsedSystem = endUsage.system / 1000;
+      
+      const cpuPercent = ((elapsedUser + elapsedSystem) / elapsedTime) * 100;
+      return Math.min(100, Math.max(0, cpuPercent));
+    }
+    
+    // Fallback for environments without process.cpuUsage
+    return 30; // Conservative estimate
   }
 
   /**
    * Get system memory usage
    */
   private async getSystemMemoryUsage(): Promise<number> {
-    // Implementation would connect to monitoring service
-    return 60; // Mock value
+    if (typeof process !== 'undefined' && process.memoryUsage) {
+      const memUsage = process.memoryUsage();
+      const totalMemory = process.env.NODE_ENV === 'production' 
+        ? 4 * 1024 * 1024 * 1024 // Assume 4GB in production
+        : 2 * 1024 * 1024 * 1024; // Assume 2GB in development
+      
+      const usedMemory = memUsage.heapUsed + memUsage.external;
+      const memoryPercent = (usedMemory / totalMemory) * 100;
+      
+      return Math.min(100, Math.max(0, memoryPercent));
+    }
+    
+    // Fallback
+    return 40; // Conservative estimate
   }
 
   /**
    * Get average response time
    */
   private async getAverageResponseTime(): Promise<number> {
-    // Implementation would connect to monitoring service
-    return 200; // Mock value in ms
+    const responseTimes = await this.redis?.lrange('response_times', 0, 99);
+    
+    if (responseTimes && responseTimes.length > 0) {
+      const times = responseTimes.map(t => parseFloat(t));
+      const average = times.reduce((a, b) => a + b, 0) / times.length;
+      return Math.round(average);
+    }
+    
+    // Default response time
+    return 100; // Optimistic default in ms
   }
 }
 

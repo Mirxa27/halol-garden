@@ -65,12 +65,16 @@ export async function POST(request: NextRequest) {
 
       case 'bank_transfer': {
         // Handle bank transfer
+        const bankAccount = process.env.BANK_ACCOUNT_NUMBER || 'SA03 8000 0000 6080 1016 7519';
+        const bankName = process.env.BANK_NAME || 'Al Rajhi Bank';
+        
         return NextResponse.json({
           success: true,
           message: 'Bank transfer instructions sent to your email',
           bankDetails: {
-            accountNumber: 'IBAN-XXXX-XXXX-XXXX',
-            bankName: 'Medical Devices Bank',
+            accountNumber: bankAccount,
+            bankName: bankName,
+            swiftCode: process.env.BANK_SWIFT_CODE || 'RJHISARI',
             reference: `PAY-${Date.now()}`,
           },
         });

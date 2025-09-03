@@ -226,7 +226,7 @@ async function getUserAnalytics(startDate: Date, endDate: Date, _groupBy?: strin
     // Active users (users who made orders)
     prisma.user.count({
       where: {
-        orders: {
+        Order: {
           some: {
             createdAt: { gte: startDate, lte: endDate }
           }

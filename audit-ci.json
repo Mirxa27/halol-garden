@@ -1,0 +1,9 @@
+{
+  "low": true,
+  "moderate": true,
+  "high": true,
+  "critical": true,
+  "allowlist": [],
+  "skip-dev": true,
+  "pass-zero-vulnerabilities": false
+}

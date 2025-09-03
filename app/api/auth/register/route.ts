@@ -3,7 +3,7 @@ import { UserType } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { generateTokenPair, generateSecureToken } from '@/lib/auth/jwt';
-import { sendEmail } from '@/lib/email/service';
+import { sendWelcomeEmail } from '@/lib/email';
 import { v4 as uuidv4 } from 'uuid';
 import prisma from '@/lib/prisma';
 
@@ -285,18 +285,8 @@ export async function POST(request: NextRequest) {
       }
     });
     
-    // Send verification email
-    const verificationUrl = `${process.env['NEXT_PUBLIC_APP_URL']}/verify-email?token=${verificationToken}`;
-    await sendEmail({
-      to: user.email,
-      subject: 'Verify Your Email - Medical Devices Marketplace',
-      template: 'welcome',
-      data: {
-        firstName: user.firstName,
-        email: user.email,
-        verificationUrl
-      }
-    });
+    // Send welcome email
+    await sendWelcomeEmail(user);
     
     // Create session
     const sessionId = uuidv4();

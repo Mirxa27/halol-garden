@@ -1,193 +1,272 @@
 import nodemailer from 'nodemailer';
+import prisma from '@/lib/prisma';
 
-// Email configuration
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// Create email transporter
+const createTransporter = () => {
+  // Use environment variables for production
+  if (process.env.NODE_ENV === 'production') {
+    return nodemailer.createTransporter({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+
+  // For development, use Ethereal Email or local SMTP
+  return nodemailer.createTransporter({
+    host: 'smtp.ethereal.email',
+    port: 587,
+    auth: {
+      user: process.env.SMTP_USER || 'ethereal.user',
+      pass: process.env.SMTP_PASS || 'ethereal.pass',
+    },
+  });
+};
 
 // Email templates
 const emailTemplates = {
-  verification: (token: string) => ({
-    subject: 'Verify Your Email - Medical Devices Marketplace',
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f4f4f4; }
-            .button { display: inline-block; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Welcome to Medical Devices Marketplace</h1>
+  orderConfirmation: (data: any) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9fafb; }
+        .order-details { background-color: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .item { border-bottom: 1px solid #e5e7eb; padding: 10px 0; }
+        .total { font-size: 18px; font-weight: bold; margin-top: 20px; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Order Confirmation</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.customerName},</p>
+          <p>Thank you for your order! We're pleased to confirm that we've received your order and it's being processed.</p>
+          
+          <div class="order-details">
+            <h2>Order Details</h2>
+            <p><strong>Order Number:</strong> ${data.orderNumber}</p>
+            <p><strong>Order Date:</strong> ${data.orderDate}</p>
+            <p><strong>Payment Method:</strong> ${data.paymentMethod}</p>
+            
+            <h3>Items Ordered:</h3>
+            ${data.items?.map((item: any) => `
+            <div class="item">
+              <p><strong>${item.name}</strong></p>
+              <p>Quantity: ${item.quantity} x $${item.price}</p>
+              <p>Subtotal: $${item.subtotal}</p>
             </div>
-            <div class="content">
-              <h2>Verify Your Email Address</h2>
-              <p>Thank you for registering! Please click the button below to verify your email address:</p>
-              <p style="text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}" class="button">
-                  Verify Email
-                </a>
-              </p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p style="word-break: break-all;">
-                ${process.env.NEXT_PUBLIC_APP_URL}/verify-email?token=${token}
-              </p>
-              <p>This link will expire in 24 hours.</p>
+            `).join('') || ''}
+            
+            <div class="total">
+              <p>Subtotal: $${data.subtotal}</p>
+              <p>Tax: $${data.tax}</p>
+              <p>Shipping: $${data.shipping}</p>
+              ${data.discount ? `<p>Discount: -$${data.discount}</p>` : ''}
+              <p><strong>Total: $${data.total}</strong></p>
             </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
-            </div>
+            
+            <h3>Shipping Address:</h3>
+            <p>${data.shippingAddress?.recipientName || ''}</p>
+            <p>${data.shippingAddress?.street || ''}</p>
+            <p>${data.shippingAddress?.city || ''}, ${data.shippingAddress?.state || ''} ${data.shippingAddress?.postalCode || ''}</p>
+            <p>${data.shippingAddress?.country || ''}</p>
           </div>
-        </body>
-      </html>
-    `,
-  }),
+          
+          <p>We'll send you another email when your order ships.</p>
+          <p>If you have any questions, please don't hesitate to contact our customer service team.</p>
+        </div>
+        <div class="footer">
+          <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
   
-  passwordReset: (token: string) => ({
-    subject: 'Password Reset Request - Medical Devices Marketplace',
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f4f4f4; }
-            .button { display: inline-block; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Password Reset Request</h1>
-            </div>
-            <div class="content">
-              <h2>Reset Your Password</h2>
-              <p>We received a request to reset your password. Click the button below to create a new password:</p>
-              <p style="text-align: center;">
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}" class="button">
-                  Reset Password
-                </a>
-              </p>
-              <p>Or copy and paste this link into your browser:</p>
-              <p style="word-break: break-all;">
-                ${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${token}
-              </p>
-              <p>This link will expire in 1 hour.</p>
-              <p>If you didn't request this, please ignore this email.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
-  }),
+  welcomeEmail: (data: any) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9fafb; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome to Medical Devices Marketplace!</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.name},</p>
+          <p>Welcome to the Medical Devices Marketplace! We're excited to have you as part of our community.</p>
+          
+          <p>Your account has been successfully created. You can now:</p>
+          <ul>
+            <li>Browse our extensive catalog of medical devices</li>
+            <li>Compare products and prices from multiple suppliers</li>
+            <li>Track your orders and manage your purchases</li>
+            <li>Access exclusive deals and promotions</li>
+          </ul>
+          
+          <p style="text-align: center;">
+            <a href="${data.loginUrl}" class="button">Login to Your Account</a>
+          </p>
+          
+          <p>If you have any questions or need assistance, our customer support team is here to help.</p>
+          
+          <p>Best regards,<br>The Medical Devices Marketplace Team</p>
+        </div>
+        <div class="footer">
+          <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
   
-  orderConfirmation: (order: any) => ({
-    subject: `Order Confirmation #${order.orderNumber} - Medical Devices Marketplace`,
-    html: `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f4f4f4; }
-            .order-details { background: white; padding: 15px; margin: 15px 0; border-radius: 5px; }
-            .footer { text-align: center; padding: 20px; color: #666; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Order Confirmation</h1>
-            </div>
-            <div class="content">
-              <h2>Thank you for your order!</h2>
-              <div class="order-details">
-                <p><strong>Order Number:</strong> ${order.orderNumber}</p>
-                <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
-                <p><strong>Total Amount:</strong> $${order.totalAmount.toFixed(2)}</p>
-                <p><strong>Status:</strong> ${order.status}</p>
-              </div>
-              <p>We'll send you another email when your order ships.</p>
-            </div>
-            <div class="footer">
-              <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `,
-  }),
+  passwordReset: (data: any) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+        .content { padding: 20px; background-color: #f9fafb; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Hello ${data.name},</p>
+          <p>We received a request to reset the password for your Medical Devices Marketplace account.</p>
+          
+          <p>Click the button below to reset your password:</p>
+          
+          <p style="text-align: center;">
+            <a href="${data.resetUrl}" class="button">Reset Password</a>
+          </p>
+          
+          <p>This link will expire in 1 hour for security reasons.</p>
+          
+          <p>If you didn't request a password reset, please ignore this email or contact support if you have concerns.</p>
+          
+          <p>Best regards,<br>The Medical Devices Marketplace Team</p>
+        </div>
+        <div class="footer">
+          <p>&copy; 2024 Medical Devices Marketplace. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `,
 };
 
 // Send email function
-export async function sendEmail(to: string, subject: string, html: string) {
-  if (process.env.NODE_ENV === 'development') {
-    console.log('📧 Email (dev mode):', { to, subject });
-    return { success: true, messageId: 'dev-mode' };
-  }
-  
+export async function sendEmail(
+  to: string,
+  subject: string,
+  template: keyof typeof emailTemplates,
+  data: Record<string, any>
+) {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || '"Medical Devices Marketplace" <noreply@medicaldevices.com>',
+    const transporter = createTransporter();
+    const templateFn = emailTemplates[template];
+    const html = templateFn(data);
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM || '"Medical Devices Marketplace" <noreply@medicaldevices.com>',
       to,
       subject,
       html,
-    });
+    };
+
+    const info = await transporter.sendMail(mailOptions);
     
+    console.log('Email sent:', info.messageId);
     return { success: true, messageId: info.messageId };
   } catch (error) {
-    console.error('Email send error:', error);
-    throw error;
+    console.error('Email sending error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
 
 // Specific email functions
-export async function sendVerificationEmail(email: string, token: string) {
-  const template = emailTemplates.verification(token);
-  return sendEmail(email, template.subject, template.html);
+export async function sendOrderConfirmationEmail(order: any, user: any) {
+  const items = order.items.map((item: any) => ({
+    name: item.metadata?.productName || 'Product',
+    quantity: item.quantity,
+    price: item.price.toFixed(2),
+    subtotal: (item.quantity * item.price).toFixed(2),
+  }));
+
+  const emailData = {
+    customerName: `${user.firstName} ${user.lastName}`,
+    orderNumber: order.orderNumber,
+    orderDate: new Date(order.createdAt).toLocaleDateString(),
+    paymentMethod: order.paymentMethod,
+    items,
+    subtotal: order.subtotal.toFixed(2),
+    tax: order.tax.toFixed(2),
+    shipping: order.shipping.toFixed(2),
+    discount: order.discount > 0 ? order.discount.toFixed(2) : null,
+    total: order.total.toFixed(2),
+    shippingAddress: order.shippingAddress,
+  };
+
+  return sendEmail(
+    user.email,
+    `Order Confirmation - ${order.orderNumber}`,
+    'orderConfirmation',
+    emailData
+  );
 }
 
-export async function sendPasswordResetEmail(email: string, token: string) {
-  const template = emailTemplates.passwordReset(token);
-  return sendEmail(email, template.subject, template.html);
+export async function sendWelcomeEmail(user: any) {
+  const emailData = {
+    name: `${user.firstName} ${user.lastName}`,
+    loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
+  };
+
+  return sendEmail(
+    user.email,
+    'Welcome to Medical Devices Marketplace!',
+    'welcomeEmail',
+    emailData
+  );
 }
 
-export async function sendOrderConfirmationEmail(email: string, order: any) {
-  const template = emailTemplates.orderConfirmation(order);
-  return sendEmail(email, template.subject, template.html);
-}
+export async function sendPasswordResetEmail(user: any, resetToken: string) {
+  const emailData = {
+    name: `${user.firstName} ${user.lastName}`,
+    resetUrl: `${process.env.NEXT_PUBLIC_APP_URL}/reset-password?token=${resetToken}`,
+  };
 
-// Queue email for sending (for production with job queue)
-export async function queueEmail(data: {
-  to: string;
-  subject: string;
-  html: string;
-  priority?: 'high' | 'normal' | 'low';
-}) {
-  // In production, this would add to a job queue (Bull, BullMQ, etc.)
-  // For now, send directly
-  return sendEmail(data.to, data.subject, data.html);
+  return sendEmail(
+    user.email,
+    'Password Reset Request',
+    'passwordReset',
+    emailData
+  );
 }

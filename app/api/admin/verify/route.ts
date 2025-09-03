@@ -17,10 +17,10 @@ export const GET = withAuth(
       // Verify user is admin
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: { adminProfile: true }
+        include: { AdminProfile: true }
       });
       
-      if (!user || user.userType !== 'ADMIN' || !user.adminProfile) {
+      if (!user || user.userType !== 'ADMIN' || !user.AdminProfile) {
         return NextResponse.json(
           { success: false, message: 'Admin access required' },
           { status: 403 }
@@ -31,8 +31,8 @@ export const GET = withAuth(
         success: true,
         data: {
           isAdmin: true,
-          role: user.adminProfile.role,
-          permissions: user.adminProfile.permissions
+          role: user.AdminProfile.role,
+          permissions: user.AdminProfile.permissions
         }
       });
       

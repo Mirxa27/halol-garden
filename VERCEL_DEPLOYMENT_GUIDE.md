@@ -1,287 +1,170 @@
-# 🚀 Vercel Deployment Guide - Medical Devices Marketplace
+# Vercel Deployment Guide
 
 ## Prerequisites
 
-Before deploying to Vercel, ensure you have:
+1. A Vercel account (sign up at vercel.com)
+2. Vercel CLI installed: `npm i -g vercel`
+3. All environment variables ready
 
-1. **Vercel Account**: Sign up at [vercel.com](https://vercel.com)
-2. **PostgreSQL Database**: Set up with Neon, Supabase, or Railway
-3. **Payment Gateway Accounts**: Stripe and/or MyFatoorah
-4. **SMTP Service**: Gmail, SendGrid, or similar
-5. **Redis Instance** (Optional): Upstash or Railway
+## Environment Variables Required
 
-## 📋 Step-by-Step Deployment
+Create the following environment variables in your Vercel project settings:
 
-### 1. Database Setup
+### Database
+- `DATABASE_URL`: Your PostgreSQL connection string
+  ```
+  postgres://7450b05d2e4722a8da3bd01e04a15e9e63000bebcc794d7267b6e1dd33b0afa9:sk_sLa4_EqyI3xz6Tgrz4Fdg@db.prisma.io:5432/postgres?sslmode=require
+  ```
 
-#### Using Neon (Recommended)
-```bash
-# 1. Create account at neon.tech
-# 2. Create new project
-# 3. Copy connection string
-# Format: postgresql://user:pass@host.neon.tech/dbname?sslmode=require
-```
+### Authentication
+- `NEXTAUTH_SECRET`: Generate with `openssl rand -base64 32`
+- `NEXTAUTH_URL`: Your production URL (e.g., https://your-app.vercel.app)
+- `AUTH_SECRET`: Same as NEXTAUTH_SECRET
 
-#### Using Supabase
-```bash
-# 1. Create project at supabase.com
-# 2. Go to Settings > Database
-# 3. Copy connection string (use pooling connection for Vercel)
-```
+### Email (Required for notifications)
+- `SMTP_HOST`: Your SMTP host (e.g., smtp.gmail.com)
+- `SMTP_PORT`: SMTP port (e.g., 587)
+- `SMTP_USER`: Your email address
+- `SMTP_PASS`: Your email password or app password
+- `EMAIL_FROM`: Sender email (e.g., noreply@your-domain.com)
 
-### 2. Prepare Environment Variables
+### Payment (Optional, can add later)
+- `STRIPE_SECRET_KEY`: Your Stripe secret key
+- `STRIPE_PUBLISHABLE_KEY`: Your Stripe publishable key
 
-Create a `.env.production` file locally (DO NOT commit):
+### Redis (Optional for caching)
+- `REDIS_URL`: Your Redis connection URL (can use Upstash Redis)
 
-```env
-# Database
-DATABASE_URL=your_production_database_url
+## Deployment Steps
 
-# Authentication
-JWT_SECRET=generate_with_openssl_rand_base64_32
-JWT_REFRESH_SECRET=generate_another_secret
-NEXTAUTH_SECRET=generate_another_secret
+### Option 1: Deploy via Vercel CLI
 
-# Super Admin (change after first login!)
-SUPER_ADMIN_EMAIL=admin@yourdomain.com
-SUPER_ADMIN_PASSWORD=SecurePassword123!
-
-# Email
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-# Stripe
-NEXT_PUBLIC_STRIPE_PUBLIC_KEY=pk_live_xxx
-STRIPE_SECRET_KEY=sk_live_xxx
-STRIPE_WEBHOOK_SECRET=whsec_xxx
-
-# MyFatoorah
-MYFATOORAH_API_KEY=your_api_key
-MYFATOORAH_BASE_URL=https://api.myfatoorah.com
-
-# Application
-NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
-```
-
-### 3. Deploy via Vercel CLI
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Login to Vercel
-vercel login
-
-# Deploy (first time)
-vercel
-
-# Follow prompts:
-# - Set up and deploy: Y
-# - Which scope: Select your account
-# - Link to existing project: N
-# - Project name: medical-devices-marketplace
-# - Directory: ./
-# - Override settings: N
-
-# Deploy to production
-vercel --prod
-```
-
-### 4. Configure Environment Variables in Vercel Dashboard
-
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Select your project
-3. Go to Settings → Environment Variables
-4. Add all variables from `.env.production`
-5. Select appropriate environments (Production/Preview/Development)
-
-### 5. Set Up Database
-
-```bash
-# Run migrations
-npx prisma migrate deploy
-
-# Seed initial data (including super admin)
-npm run db:seed
-```
-
-### 6. Configure Domain (Optional)
-
-1. In Vercel Dashboard → Settings → Domains
-2. Add your custom domain
-3. Follow DNS configuration instructions
-4. Wait for SSL certificate (automatic)
-
-## 🔧 Post-Deployment Configuration
-
-### 1. Access Admin Panel
-
-```
-https://your-domain.vercel.app/admin
-```
-
-Login with super admin credentials and:
-- Change the default password immediately
-- Configure system settings
-- Set up email templates
-- Configure payment gateways
-
-### 2. Configure Webhooks
-
-#### Stripe Webhook
-1. Go to Stripe Dashboard → Webhooks
-2. Add endpoint: `https://your-domain/api/payments/stripe/webhook`
-3. Select events: `payment_intent.succeeded`, `payment_intent.payment_failed`
-4. Copy webhook secret to Vercel env vars
-
-#### MyFatoorah Webhook
-1. Configure in MyFatoorah dashboard
-2. Set callback URL: `https://your-domain/api/payments/myfatoorah/callback`
-
-### 3. Test Critical Paths
-
-- [ ] User registration and email verification
-- [ ] Product browsing and search
-- [ ] Add to cart and checkout
-- [ ] Payment processing
-- [ ] Order confirmation email
-- [ ] Admin dashboard access
-
-## 🔍 Monitoring & Maintenance
-
-### Enable Monitoring
-
-1. **Vercel Analytics**
+1. Login to Vercel:
    ```bash
-   npm install @vercel/analytics
-   ```
-   Enable in Vercel Dashboard
-
-2. **Error Tracking (Sentry)**
-   ```bash
-   npm install @sentry/nextjs
-   npx @sentry/wizard@latest -i nextjs
+   vercel login
    ```
 
-3. **Uptime Monitoring**
-   - Use Vercel's built-in monitoring
-   - Or set up external monitoring (UptimeRobot, Pingdom)
+2. From the project root, run:
+   ```bash
+   vercel
+   ```
 
-### Regular Maintenance Tasks
+3. Follow the prompts:
+   - Link to existing project or create new
+   - Configure project settings
+   - Deploy
 
-- **Daily**: Check error logs, monitor performance
-- **Weekly**: Review analytics, update dependencies
-- **Monthly**: Database optimization, security updates
+4. Set environment variables:
+   ```bash
+   vercel env add DATABASE_URL production
+   vercel env add NEXTAUTH_SECRET production
+   vercel env add NEXTAUTH_URL production
+   # Add other variables as needed
+   ```
 
-## 🚨 Troubleshooting
+### Option 2: Deploy via GitHub Integration
 
-### Common Issues
+1. Push your code to GitHub
 
-#### 1. Database Connection Errors
-```
-Error: Can't reach database server
-```
-**Solution**: 
-- Check DATABASE_URL format
-- Ensure IP whitelisting (if required)
-- Use pooling connection for serverless
+2. Import project in Vercel:
+   - Go to vercel.com/new
+   - Import your GitHub repository
+   - Configure project name
 
-#### 2. Build Failures
-```
-Error: Build failed
-```
-**Solution**:
-- Check build logs in Vercel
-- Run `npm run build` locally
-- Ensure all dependencies are in package.json
+3. Add Environment Variables:
+   - Go to Project Settings > Environment Variables
+   - Add all required variables
+   - Make sure to select "Production" environment
 
-#### 3. Environment Variable Issues
-```
-Error: Missing required environment variable
-```
-**Solution**:
-- Verify all env vars are set in Vercel Dashboard
-- Check variable names match exactly
-- Redeploy after adding variables
+4. Deploy:
+   - Click "Deploy"
+   - Vercel will automatically build and deploy
 
-#### 4. Payment Gateway Errors
-**Solution**:
-- Verify API keys are correct
-- Check webhook configuration
-- Ensure proper HTTPS for callbacks
+## Post-Deployment Steps
 
-## 📊 Performance Optimization
+1. **Update NEXTAUTH_URL**: 
+   - Once deployed, update NEXTAUTH_URL to your production URL
+   - Format: https://your-project.vercel.app
 
-### 1. Enable Caching
-```javascript
-// In your API routes
-export const revalidate = 60; // Cache for 60 seconds
-```
+2. **Run Database Migrations** (if needed):
+   - Connect to your production database
+   - Run: `npx prisma migrate deploy`
 
-### 2. Optimize Images
-```javascript
-import Image from 'next/image';
-// Use Next.js Image component for automatic optimization
-```
+3. **Seed Initial Data** (optional):
+   - For production, you might want to create an admin user
+   - Create a production seed script or manually add via database
 
-### 3. Enable ISR (Incremental Static Regeneration)
-```javascript
-export const revalidate = 3600; // Revalidate every hour
-```
+4. **Configure Domain** (optional):
+   - Go to Project Settings > Domains
+   - Add your custom domain
+   - Update NEXTAUTH_URL accordingly
 
-## 🔐 Security Checklist
+## Troubleshooting
 
-- [ ] Change default super admin password
-- [ ] Enable 2FA for admin accounts
-- [ ] Set up rate limiting
-- [ ] Configure CORS properly
-- [ ] Enable security headers
-- [ ] Regular security updates
-- [ ] Backup database regularly
+### Build Errors
 
-## 📱 Mobile Optimization
+1. **Prisma Client Generation**:
+   - Already handled in `package.json` with postinstall script
+   - Build command includes `prisma generate`
 
-The platform is fully responsive. Test on:
-- [ ] iPhone (Safari)
-- [ ] Android (Chrome)
-- [ ] iPad/Tablets
-- [ ] Desktop (various browsers)
+2. **TypeScript Errors**:
+   - Ensure all types are properly defined
+   - Check `types/next-auth.d.ts` is included
 
-## 🆘 Support & Resources
+### Runtime Errors
 
-- **Vercel Documentation**: [vercel.com/docs](https://vercel.com/docs)
-- **Next.js Documentation**: [nextjs.org/docs](https://nextjs.org/docs)
-- **Prisma Documentation**: [prisma.io/docs](https://prisma.io/docs)
-- **Support Email**: support@medical-devices.com
+1. **Database Connection**:
+   - Verify DATABASE_URL is correct
+   - Check if database allows connections from Vercel IPs
 
-## 📝 Deployment Checklist
+2. **Authentication Issues**:
+   - Ensure NEXTAUTH_SECRET is set
+   - NEXTAUTH_URL matches your deployment URL
 
-Before going live:
+3. **Missing Environment Variables**:
+   - Check Vercel logs for missing variable errors
+   - Add any missing variables in Project Settings
 
-- [ ] All environment variables configured
-- [ ] Database migrated and seeded
-- [ ] Email service tested
-- [ ] Payment processing tested
-- [ ] SSL certificate active
-- [ ] Admin panel accessible
-- [ ] Mobile responsiveness verified
-- [ ] Performance optimized
-- [ ] Security headers configured
-- [ ] Monitoring enabled
-- [ ] Backup strategy in place
-- [ ] Documentation updated
+## Performance Optimization
 
-## 🎉 Launch!
+1. **Enable Caching**:
+   - Add Redis for better performance
+   - Use Vercel Edge Config for feature flags
 
-Once everything is configured and tested:
+2. **Image Optimization**:
+   - Images are automatically optimized by Next.js
+   - Consider using Vercel's Image Optimization
 
-1. Update DNS to point to Vercel
-2. Monitor closely for first 24 hours
-3. Be ready to rollback if needed
-4. Celebrate your successful deployment! 🚀
+3. **Edge Functions**:
+   - Consider moving auth checks to Edge Middleware
+   - Use ISR for product pages
 
----
+## Security Checklist
 
-**Need Help?** Contact the development team or check the troubleshooting section above.
+- [ ] All environment variables are set
+- [ ] NEXTAUTH_SECRET is strong and unique
+- [ ] Database connection uses SSL
+- [ ] CORS is properly configured
+- [ ] Rate limiting is enabled
+- [ ] Input validation is working
+
+## Monitoring
+
+1. **Vercel Analytics**:
+   - Enable in Project Settings
+   - Monitor Web Vitals
+
+2. **Error Tracking**:
+   - Consider adding Sentry or similar
+   - Monitor Vercel Functions logs
+
+3. **Database Monitoring**:
+   - Monitor connection pool
+   - Track slow queries
+
+## Support
+
+For deployment issues:
+1. Check Vercel deployment logs
+2. Review Function logs for runtime errors
+3. Verify all environment variables are set correctly

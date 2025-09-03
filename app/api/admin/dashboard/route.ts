@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: {
+          User: {
             select: {
               id: true,
               firstName: true,
@@ -114,9 +114,9 @@ export async function GET(request: NextRequest) {
               email: true,
             }
           },
-          items: {
+          OrderItem: {
             include: {
-              product: {
+              Product: {
                 select: {
                   name: true,
                   nameAr: true,
@@ -241,16 +241,16 @@ export async function GET(request: NextRequest) {
       recentOrders: recentOrders.map(order => ({
         id: order.id,
         orderNumber: order.orderNumber,
-        customer: `${order.user.firstName} ${order.user.lastName}`,
-        email: order.user.email,
+        customer: `${order.User.firstName} ${order.User.lastName}`,
+        email: order.User.email,
         total: order.total,
         status: order.status,
         paymentStatus: order.paymentStatus,
         createdAt: order.createdAt,
-        itemCount: order.items.length,
-        items: order.items.map(item => ({
-          productName: item.product.name,
-          productNameAr: item.product.nameAr,
+        itemCount: order.OrderItem.length,
+        items: order.OrderItem.map(item => ({
+          productName: item.Product.name,
+          productNameAr: item.Product.nameAr,
           quantity: item.quantity,
           price: item.price,
         }))

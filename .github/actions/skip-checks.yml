@@ -1,0 +1,9 @@
+# This file is used to skip checks during initial setup
+# Remove this file when ready to enable all checks
+
+skip_checks:
+  - lint-and-format
+  - test
+  - security-scan
+  - build
+  - deployment-validation

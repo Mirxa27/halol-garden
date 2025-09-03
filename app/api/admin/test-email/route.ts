@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withAuth } from '@/lib/auth/middleware';
-import { testEmailConfiguration } from '@/lib/email/service';
+import { sendEmail } from '@/lib/email';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -23,7 +23,17 @@ export const POST = withAuth(
         );
       }
       
-      const success = await testEmailConfiguration(validation.data.email);
+      // Send test email
+      await sendEmail(
+        validation.data.email,
+        'Test Email - Medical Devices Marketplace',
+        'welcomeEmail',
+        {
+          name: 'Test User',
+          loginUrl: process.env['NEXT_PUBLIC_APP_URL'] || 'http://localhost:3000'
+        }
+      );
+      const success = true;
       
       if (success) {
         return NextResponse.json({
