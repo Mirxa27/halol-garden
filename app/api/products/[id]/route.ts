@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
+import { getCurrentUser, isAdmin, isSupplier } from '@/lib/auth';
+import { UserType } from '@prisma/client';
 
 // Validation schemas
 const updateProductSchema = z.object({
@@ -262,11 +264,9 @@ export async function PUT(
       );
     }
 
-    // Check user permissions
-    const userId = request.headers.get('x-user-id');
-    const userType = request.headers.get('x-user-type');
-
-    if (!userId) {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
@@ -275,8 +275,8 @@ export async function PUT(
 
     // Check if user has permission to update this product
     const canUpdate = await checkProductUpdatePermission(
-      userId,
-      userType || '',
+      user.id,
+      user.role,
       existingProduct.supplierId,
       existingProduct.supplier?.userId
     );
@@ -356,7 +356,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -370,9 +370,26 @@ export async function DELETE(
       );
     }
 
-    // Check if product exists
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if product exists with supplier info
     const existingProduct = await prisma.product.findUnique({
       where: { id },
+      include: {
+        supplier: {
+          select: {
+            userId: true,
+            id: true,
+          },
+        },
+      },
     });
 
     if (!existingProduct) {
@@ -382,13 +399,81 @@ export async function DELETE(
       );
     }
 
-    // TODO: Check if user has permission to delete this product
-    // For now, allowing all deletions
+    // Check permissions
+    const canDelete = await checkProductDeletePermission(
+      user,
+      existingProduct.supplierId,
+      existingProduct.supplier?.userId
+    );
+
+    if (!canDelete) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized to delete this product' },
+        { status: 403 }
+      );
+    }
+
+    // Check if product has active orders or rentals
+    const activeOrders = await prisma.orderItem.count({
+      where: {
+        productId: id,
+        order: {
+          status: {
+            in: ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED'],
+          },
+        },
+      },
+    });
+
+    if (activeOrders > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete product with active orders' },
+        { status: 400 }
+      );
+    }
+
+    // Check active rentals
+    const activeRentals = await prisma.rentalItem.count({
+      where: {
+        product: {
+          id: id,
+        },
+        rentalAgreement: {
+          status: {
+            in: ['PENDING', 'ACTIVE', 'OVERDUE'],
+          },
+        },
+      },
+    });
+
+    if (activeRentals > 0) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot delete product with active rentals' },
+        { status: 400 }
+      );
+    }
 
     // Soft delete by setting status to DISCONTINUED
     await prisma.product.update({
       where: { id },
-      data: { status: 'DISCONTINUED' },
+      data: { 
+        status: 'DISCONTINUED',
+        isPublished: false,
+      },
+    });
+
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'DELETE',
+        entity: 'Product',
+        entityId: id,
+        oldData: { status: existingProduct.status },
+        newData: { status: 'DISCONTINUED' },
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '',
+        userAgent: request.headers.get('user-agent') || '',
+      },
     });
 
     return NextResponse.json({
@@ -404,6 +489,39 @@ export async function DELETE(
       { status: 500 }
     );
   }
+}
+
+// Helper function to check product delete permissions
+async function checkProductDeletePermission(
+  user: any,
+  productSupplierId: string,
+  supplierUserId?: string
+): Promise<boolean> {
+  // Admins can delete any product
+  if (user.role === UserType.ADMIN) {
+    return true;
+  }
+
+  // Suppliers can only delete their own products
+  if (user.role === UserType.EQUIPMENT_SUPPLIER) {
+    // Check if the user is the supplier of this product
+    if (supplierUserId === user.id) {
+      return true;
+    }
+
+    // Also check by supplier profile
+    const supplierProfile = await prisma.equipmentSupplier.findFirst({
+      where: {
+        userId: user.id,
+        id: productSupplierId,
+      },
+    });
+
+    return !!supplierProfile;
+  }
+
+  // Other user types cannot delete products
+  return false;
 }
 
 // Helper function to check product update permissions

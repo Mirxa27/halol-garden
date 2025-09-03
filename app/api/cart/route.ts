@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 
 // Type for inventory JSON field
 interface InventoryData {
@@ -22,24 +23,12 @@ const updateCartItemSchema = z.object({
 // GET /api/cart - Get current user's cart
 export async function GET(request: NextRequest) {
   try {
-    // Get user from session or headers
-    const userId = request.headers.get('x-user-id');
+    // Get current user
+    const user = await getCurrentUser();
     
-    if (!userId) {
-      // Try to get from session for anonymous users
-      const sessionId = request.cookies.get('session-id')?.value;
-      if (!sessionId) {
-        return NextResponse.json({
-          success: true,
-          cart: {
-            items: [],
-            total: 0,
-            itemCount: 0,
-          },
-        });
-      }
-      
-      // For anonymous users, return session-based cart (implement later)
+    if (!user) {
+      // For anonymous users, return empty cart
+      // In production, you might want to implement session-based carts
       return NextResponse.json({
         success: true,
         cart: {
@@ -49,6 +38,8 @@ export async function GET(request: NextRequest) {
         },
       });
     }
+
+    const userId = user.id;
 
     // Get or create cart for authenticated user
     let cart = await prisma.cart.findUnique({
@@ -144,14 +135,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = cartItemSchema.parse(body);
     
-    const userId = request.headers.get('x-user-id');
-    
-    if (!userId) {
+    // Get current user
+    const user = await getCurrentUser();
+    if (!user) {
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
+    const userId = user.id;
 
     // Check if product exists and is available
     const product = await prisma.product.findUnique({
