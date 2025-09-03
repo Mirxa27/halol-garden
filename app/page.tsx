@@ -8,7 +8,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FeaturedProducts } from '@/components/home/FeaturedProducts';
+import dynamic from 'next/dynamic';
+
+const FeaturedProducts = dynamic(() => import('@/components/home/FeaturedProducts').then(mod => mod.FeaturedProducts || mod.default), {
+  ssr: false,
+  loading: () => <div className="animate-pulse bg-gray-200 h-96 rounded-lg" />,
+});
 import { 
   ShieldCheck, Truck, Clock, Users, 
   Package, Wrench, Heart, Star,
